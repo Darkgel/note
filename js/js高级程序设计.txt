@@ -1,0 +1,333 @@
+BOM对象： window ， document， location， navigator， screen
+
+第一章 JavaScript简介
+	一个完整的JavaScript实现应该由下列三个不同的部分组成 ： 
+		1.核心（ECMAScript）
+		2.文档对象模型（DOM）
+		3.浏览器对象模型（BOM）
+
+
+
+第二章 在HTML中使用JavaScript
+	<script> 与 <img> 类似，它们的src属性可以是指向当前HTML页面坐在域之外的某个域中的URL
+
+
+第三章 基本概念
+	严格模式 ： "use strict";
+	注意 ： 省略var操作符，会导致定义的变量成为全局变量
+
+	ECMAScript中的5种简单数据类型 ： Undefined， Null， Boolean， Number， String
+	ECMAScript中的1种复杂数据类型 ： Object
+
+	null值表示空对象指针
+
+	3个将非数值转换为数值的函数： Number(), parseIng(), parseFloat()
+
+	null, undefined没有toString()方法， 但是可以使用 String(null) , String(undefined)
+
+	要把某个值转换为字符串， 可以使用加号操作符把它与一个空字符串""加在一起
+
+
+	Object 
+		Object的每个实例都具有下列属性和方法
+			1. Constructor : 保存着用于创建当前对象的函数
+			2. hasOwnProperty(propertyName) : 用于检查给定的属性在当前的对象实例中（而不是在实例的原型中）是否存在
+			3. isPrototypeOf(object) : 用于检查传入的对象是否是另一个对象的原型
+			4. propertyIsEnumerable(propertyName) ： 用于检查给定的属性是否能够使用for-in语句来枚举
+			5. toLocaleString() : 返回对象的字符串表示，该字符串与执行环境的地区对应
+			6. toString() : 返回对象的字符串表示
+			7. valueOf() : 返回对象的字符串、数值或布尔值表示。通常与toString()的返回值相同
+
+
+	按位非操作 ： 操作数的复制减1
+
+
+	for-in语句：一种精准的迭代语句，可以用来枚举对象的属性
+		for (var property in expression) statement
+
+
+	switch语句在比较值时使用的是全等操作符，因此不会发生类型转换
+
+	return语句不带有返回值，则函数停止执行后返回undefined
+
+	没有传递值得命名参数将自动被赋予undefined值
+
+	ECMAScript中所有的参数传递的都是值，不可能通过引用传递参数
+
+	如果在ECMAScript中定义了两个名字相同的函数， 则该名字只属于后定义的函数
+
+
+
+
+第四章 变量、作用域和内存问题
+	typeof ： 检测基本类型
+	instanceof ： 检测是什么类型的对象
+
+	在web浏览器中，全局执行环境被认为是window对象，因此所有全局变量和函数都是作为window对象的属性和方法创建的。某个执行环境中的所有代码执行完毕后，该环境被销毁，保存在其中的所有变量和函数定义也随之销毁（全局执行环境直到应用程序退出--例如关闭网页或浏览器--时才会被销毁）
+
+	使用var声明的变量会自动被添加到最近的环境中。在函数内部，最接近的环境就是函数的局部环境；在with语句中，最接近的环境是函数环境。如果初始化变量时没有使用var声明，该变量会自动被添加到全局环境
+
+
+第五章 引用类型
+	引用类型看起来与类相似，当他们不是相同的概念。
+
+	对象是某个特定引用类型的实例。新对象是使用new 操作符后跟一个构造函数来创建的
+
+	创建Object实例的两种方式 : 
+		1. 使用new 操作符后跟Object构造函数
+		2. 使用对象字面量表示法
+
+	数组迭代方法(这些方法都不会修改数组中的包含的值)：every(), filter(), forEach(), map(), some()
+
+	缩小数组的方法 ： reduce(), reduceRight()
+
+	引用类型 ： Object类型， Array类型， Date类型， RegExp类型， Function类型， 基本包装类型（Boolean类型， Number类型， String类型）， 单体内置对象（Global对象， Math对象）
+
+	RegExp类型；
+		实例属性 ： global，ignoreCase， lastIndex， multiline， source
+		实例方法 ： 
+			exec()   返回包含第一个匹配项信息的数组 
+			test()   在模式与该参数匹配的情况下返回true，否则返回false
+
+	Function类型
+		函数是对象，函数名实际上是一个指向函数对象的指针，不会与某个函数绑定。
+
+		解析器在向执行环境中加载数据时，对函数声明和函数表达式并非一视同仁。解析器会率先读取函数声明，并使其在执行任何代码之前可用（可以访问）；至于函数表达式，则必须等到解析器执行到它所在的代码行，才会真正被解析
+
+		函数内部属性 ： arguments， this（它引用的是函数据以执行的环境对象）
+
+		在调用函数前，this的值并不确定，因此this可能会在代码执行过程中引用不同的对象
+
+		每个函数都包含两个属性 ： length（函数希望接收的命名参数的个数）， prototype
+		每个函数都包含两个非继承而来的方法 ： apply(), call()
+
+	基本包装类型：Boolean， Number， String
+		实际上，每当读取一个基本类型值的时候，后台就会创建一个对应的基本包装类型的对象
+		引用类型与基本包装类型的主要区别就是对象的生存期。使用new操作符创建的的引用类型的实例，在执行流离开当前作用域之前都一直保存在内存中。而自动创建的基本包装类型的对象，则只存在于一行代码的执行瞬间，然后立即被销毁。
+
+	单体内置对象
+		ECMA-262对内置对象的定义 ：由ECMAScript实现提供的、不依赖于宿主环境的对象，这些对象在ECMAScript程序执行之前就已经存在了。
+		常见内置对象 ： Object、Array、String
+		单体内置对象 ： Global、Math
+
+		Global对象 ； 所有在全局作用域中定义的属性和函数，都是Global对象的属性。例如isNaN()、isFinite()、parseInt()等等都是Global对象的方法
+
+		URI方法 ： encodeURIComponent(), encodeURI()   (不建议使用escape(), unescape())
+
+		ECMAScript虽然没有指出如何直接访问Global对象，但web浏览器都是将这个全局对象作为window对象的一部分加以实现的。因此，在全局作用域中声明的所有变量和函数，就都称为了window对象的属相
+
+
+
+
+第六章 面向对象的程序设计
+	我们可以把ECMAScript的对象想象成散列表：就是一组名值对，其中值可以是数据或函数。每个对象都是基于引用类型创建的（可以是原生引用类型，也可以是开发人员定义的类型）
+
+	考虑到ECMAScript中无法创建类，开发人员发明了一种函数，用函数来封装以特定接口创建对象的细节
+
+	构造函数模式 
+		function Person(name, age, job){
+			this.name = name;
+			this.age = age;
+			this.job = job;
+			this.sayName = function(){
+				alert(this.name);
+			}
+		}
+
+		var person1 = new Person("Amy", 23, "Singer");
+
+		alert(person1 instanceof Person)//true
+		alert(person1.constructor == Person) //true
+
+	任何函数，只要通过new操作符来调用，那它就可以作为构造函数
+
+
+	每个函数都有一个prototype属性，这个属性是一个指针，指向一个对象，而这个对象的用途是包含可以有特定类型的所有实例共享的属性和方法。
+
+	创建自定义类型的最常见方式，就是组合使用构造函数模式与原型模式。构造函数用于定义实例属性，而原型模式用于定义方法和共享的属性。
+
+	动态原型模式
+		function Person(name, age, job){
+			//属性
+			this.name = name;
+			this.age = age;
+			this.job = job;
+
+			//方法
+			if(typeof this.sayName != "function"){
+				Person.prototype.sayName = function(){
+					alert(this.name);
+				}
+			}
+		}
+
+	寄生构造函数模式
+		function Person(name, age, job){
+			var 0 = new Object();
+			o.name = name;
+			o.age = age;
+			o.job = job;
+			o.sayName = function(){
+				alert(this.name);
+			}
+
+			return o;
+		}
+
+	所有函数的默认原型都是object的实例，因此默认原型中的constructor指向构造函数Object()
+
+
+	组合继承（最常用的继承模式）
+		function SuperType(name){
+			this.name = name;
+			this.colors = ["red", "blue", "green"];
+		}
+
+		SuperType.prototype.sayName = function(){
+			alert(this.name);
+		}
+
+		function SubType(name, age){
+			//继承属性
+			SuperType.call(this, name);
+
+			this.age = age;
+		}
+
+		//继承方法
+		Subtype.prototype = new SuperType();
+
+		SubType.prototype.sayAge = function(){
+			alert(this.age);
+		}
+
+
+	小结
+		1.在没有类的情况下，可以采用下列模式创建对象
+			工厂模式
+			构造函数模式
+			原型模式
+			（组合使用构造函数模式和原型模式时，使用构造函数定义实例属性，而使用原型定义共享的属性和方法）
+
+		2.继承方式
+			借用构造函数
+			组合继承
+			原型式继承
+			寄生式继承
+			寄生组合式继承
+
+
+第七章 函数表达式
+	闭包，匿名函数是两个不同的概念。
+
+	闭包 ： 指有权访问另一个函数作用域中的变量的函数
+
+	私有作用域 
+		(function () {
+			//私有作用域（块级作用域）
+		})();
+
+	严格来讲，JavaScript没有私有成员的概念，所有的对象属性都是共有的
+
+
+
+第八章 BOM
+	对象 ； windows， location， navigator， screen， history
+
+	如果页面中包含框架（frameset），则每个框架都有自己的window对象，并且保存在frames集合中
+
+	页面视口大小 ： document.documentElement.clientWidth, document.documentElement.clientHieht 
+
+	窗口大小 ： innerWidth， innerHeight， outerWidth， outerHeight
+
+	调整浏览器窗口大小 ： resizeTo(), resizeBy()
+
+	打开新窗口 ： window.open("http://www.baidu.com", "newWindow", "height=400,width=400,top=10,resizable=yes")
+
+	超时调用 ： setTimeout() 时间单位为毫秒
+		建议调用方式 ： 
+			var timeoutId = setTimeout(function(){
+				alert("hello world!");
+			}, 1000);
+
+			clearTimeout(timeoutId);
+
+		setTimeout()的第二个参数告诉js再过多长时间把当前任务添加到任务队列中。如果队列是空的，那么添加的代码会立即执行；如果队列不是空的，那么它就要等前面的代码执行完了以后再执行
+		注意 ： 超时调用的代码都是在全局作用域中执行的，因此函数中this的值在非严格模式下指向window对象，在严格模式下是undefined
+
+	间歇调用：按照指定的时间间隔重复执行代码，直至间歇调用被取消或者页面被卸载
+		建议调用方式：
+			var intervalId = setInterval(function(){
+				alert("hello world!");
+			}, 10000);
+
+			clearInterval();
+
+		建议：使用超时调用来模拟间歇调用
+			var num = 0;
+			var max = 10;
+			function incrementNumber(){
+				num++；
+				if(num < max){
+					setTimeout(incrementNumber, 500);
+				}else{
+					alert("Done");
+				}
+			}
+
+			setTimeout(incrementNumber, 500);
+
+		在开发环境下，很少使用间歇调用的原因：后一个间歇调用可能会在前一个间歇调用结束之前启动，而上面通过超时调用来模拟间歇调用可以避免这一点
+
+	location对象
+		location既是window对象的属性，也是document对象的属性（即window.location和document.location引用的是同一个对象）
+
+		以下代码效果相同(都会立即打开url并在浏览器的历史记录中生成一条记录)：
+			location.assign("http://www.wrox.com");
+			window.location = "http://www.wrox.com";
+			location.href = "http://www.wrox.com";
+
+		location.replace()
+
+		location.reload(); //重新加载（有可能从缓存中加载）
+		location.reload(); //重新加载（从服务器重新加载）
+
+
+	navigator对象
+		通常会用来检测网页的浏览器类型
+
+		检测插件
+			navigator.pulugins
+
+	screen对象
+		用于表明客户端的能力
+
+	history对象
+		保存用户上网的历史记录，从窗口被打开的那一刻算起
+		注意： history对象是window对象的属性
+		history.go()
+
+
+
+第九章 客户端检测
+	能力检测
+		基本模式：
+			if(object.propertyInQuestion){
+				//使用object。propertyInQuestion
+			}
+
+	怪癖检测
+		识别浏览器的特殊行为（想要知道浏览器存在什么缺陷，这通常需啊哟运行一小段代码，以确定某一特性不能正常工作）
+
+	用户代理检测
+		五大呈现引擎： IE、Gecko、WebKit、KHTML、Opera
+
+		识别浏览器：ie、firefox、safari、konq、opera、chrome
+
+		识别平台: windows、mac、unix/linux
+
+		识别移动设备：iphone、ipod、ipad、ios、android、nokiaN、winMobile
+
+	用户代理检测是客户端检测的最后一个选择。只要可能，都应该优先采用能力检测和怪癖检测
+
+第十章 DOM

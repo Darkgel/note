@@ -1,0 +1,271 @@
+样例分析：https://github.com/hyperledger/fabric-samples/tree/master/fabric-ca
+	重点：
+		1.学会通过ca client和ca server生成加密材料，而不是通过cryptogen
+		2.学会使用Attribute-Based Access Control (ABAC)
+
+	启动容器的顺序:
+		1.根CA rca ：每个根CA属于一个组织。启动容器后根CA的自签名证书会写到 data 目录中，当中间CA需要通过TLS与根CA通信时就会用到
+        (运行 script/start-root-ca.sh) 
+        
+        
+		2.中间CA ica ： 每个中间CA属于一个组织。每个中间CA都有相应的根CA。每个中间CA的证书同样的会写到目录 data 中
+        (运行 script/start-intermediate-ca.sh)
+
+		3.setup容器（fabric-ca-tools） ： 通过中间CA，注册各种identities， 生成创世块，以及其他建立 blockchain 网络需要的制品。
+        (运行 script/setup-fabric.sh)
+
+		4.启动orderer和peer : (分别运行 script/start-orderer.sh 和 script/start-peer.sh)
+
+		5.启动run容器（fabric-ca-tools） ：执行各种测试用例，包括 创建channel， 将peers加入channel， install & instantiate chaincode， 调用chaincode
+        (运行 script/run-fabric.sh)
+
+
+
+详细分析：从start.sh开始
+    1.start.sh
+        1.引入“scripts/env.sh”内定义的变量和函数，使其在当前脚本中生效
+
+        2.清除docker containers，chaincode docker images，data directory
+
+        3.生成新的docker-compose配置文件(即docker-compose.yml)
+
+        4.使用docker-compose依次启动各容器，并在容器中运行相应的脚本
+
+
+    2.script/start-root-ca.sh（根CA容器启动后）
+        对应的命令 ： /bin/bash -c '/scripts/start-root-ca.sh 2>&1 | tee /data/logs/rca-org0.log'
+
+        1.fabric-ca-server init -b rca-org0-admin:rca-org0-adminpw
+
+        2.将生成的自签名证书（/etc/hyperledger/fabric-ca/ca-cert.pem）复制到/data/org0-ca-cert.pem，这样别的容器也可以访问到该证书了
+
+        3.修改init生成的fabric-ca-server-config.yaml，主要修改了“affiliations”
+
+        4.启动server：fabric-ca-server start
+
+
+    3.script/start-intermediate-ca.sh（中间CA容器启动后）
+        对应的命令 ：/bin/bash -c '/scripts/start-intermediate-ca.sh org0 2>&1 | tee /data/logs/ica-org0.log'
+
+        1.确认相应的根CA已经正确运行
+
+        2.fabric-ca-server init -b ica-org0-admin:ica-org0-adminpw -u https://rca-org0-admin:rca-org0-adminpw@rca-org0:7054
+
+        3.将获取的由根CA签名的证书（/etc/hyperledger/fabric-ca/ca-chain.pem），移动到“/data/org0-ca-chain.pem”
+
+        4.修改init生成的fabric-ca-server-config.yaml，主要修改了“affiliations”
+
+        5.启动server：fabric-ca-server start
+
+
+    4.script/setup-fabric.sh（setup容器启动后）
+        对应的命令 ：/bin/bash -c '/scripts/setup-fabric.sh 2>&1 | tee /data/logs/setup.log; sleep 99999'
+
+        1.registerIdentities ：
+            registerOrdererIdentities：(若有多个orderer组织，则都分别注册)
+                登记当前orderer组织的ca admin
+                enrollCAAdmin ：fabric-ca-client enroll -d -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054
+
+                注册当前orderer组织的orderer类型用户，组织的每个orderer都注册一个自己的用户（其实也是组织的用户,注意，每个CA都属于一个组织，向CA注册的用于都是隶属于CA所在的组织）
+                initOrdererVars $ORG $COUNT(若有多个orderer，则都分别注册)
+                fabric-ca-client register -d --id.name orderer1-org0 --id.secret orderer1-org0pw --id.type orderer
+
+                注册该组织的admin
+                fabric-ca-client register -d --id.name admin-org0 --id.secret admin-org0pw --id.attrs "admin=true:ecert"
+
+            registerPeerIdentities：(若有多个peer组织，则都分别注册)
+                登记当前peer组织的ca admin
+                enrollCAAdmin ：fabric-ca-client enroll -d -u https://$CA_ADMIN_USER_PASS@$CA_HOST:7054
+
+                注册当前peer组织的peer类型用户
+                initPeerVars $ORG $COUNT(若有多个peer，则都分别注册)
+                fabric-ca-client register -d --id.name peer1-org1 --id.secret peer1-org1pw --id.type peer
+
+                注册该peer组织的admin
+                fabric-ca-client register -d --id.name admin-org1 --id.secret admin-org1 --id.attrs "hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert"
+
+                注册该peer组织的普通用户
+                fabric-ca-client register -d --id.name user-org1 --id.secret user-org1pw
+
+            
+        2.getCACerts
+            对每个组织：
+                initOrgVars $ORG
+                fabric-ca-client getcacert -d -u https://$CA_HOST:7054 -M /data/orgs/${ORG}/msp
+
+                Create the TLS directories of the MSP folder if they don't exist
+                （创建tls证书目录，并将相应的根CA，中间CA的证书复制到该目录下）：
+                finishMSPSetup /data/orgs/${ORG}/msp
+
+                若有需要，获取admin身份
+                switchToAdminIdentity
+                    fabric-ca-client enroll -d -u https://$ADMIN_NAME:$ADMIN_PASS@$CA_HOST:7054
+                    
+                    将获得的证书存储到相应的位置，然后设置环境变量，使用admin身份：
+                    export CORE_PEER_MSPCONFIGPATH=$ORG_ADMIN_HOME/msp
+
+
+        3.makeConfigTxYaml
+            生成/etc/hyperledger/fabric/configtx.yaml，并复制到data目录，这样就可以共享了
+
+
+        4.generateChannelArtifacts        
+            生成channel需要的制品（根据前面生成的configtx.yaml）：
+                a.Generating orderer genesis block：
+                configtxgen -profile OrgsOrdererGenesis -outputBlock /$DATA/genesis.block
+
+                b.Generating channel configuration transaction:
+                configtxgen -profile OrgsChannel -outputCreateChannelTx /$DATA/channel.tx -channelID $CHANNEL_NAME
+
+                c.Generating anchor peer update transaction(每个peer组织都生成)：
+                configtxgen -profile OrgsChannel -outputAnchorPeersUpdate /${DATA}/orgs/${ORG}/anchors.tx -channelID $CHANNEL_NAME -asOrg $ORG
+
+        
+        5.所有流程正确执行后，新建文件$SETUP_SUCCESS_FILE
+
+
+    5.script/start-orderer.sh（orderer容器启动后）
+        对应的命令：/bin/bash -c '/scripts/start-orderer.sh 2>&1 | tee /data/logs/orderer1-org0.log'
+
+        1.awaitSetup（等待确认setup容器已经正确执行完成）
+
+        2.Enroll to get orderer's TLS cert (using the "tls" profile),先获取用于tls的材料
+        fabric-ca-client enroll -d --enrollment.profile tls -u https://orderer1-org0:orderer1-org0pw@ica-org0:7054 -M /tmp/tls --csr.hosts $ORDERER_HOST
+
+        3.将tls用到的key和cert复制到相应的地方
+
+        4.再次enroll，获取orderer1-org0身份（基于https）
+        fabric-ca-client enroll -d -u https://orderer1-org0:orderer1-org0pw@ica-org0:7054 -M /etc/hyperledger/orderer/msp
+
+        5.Create the TLS directories of the MSP folder if they don't exist：
+        finishMSPSetup $ORDERER_GENERAL_LOCALMSPDIR
+
+        6.Copy the org's admin cert into some target MSP directory：（因此若需要可以使用admin身份）
+        copyAdminCert $ORDERER_GENERAL_LOCALMSPDIR
+
+        7.启动orderer服务
+            env | grep ORDERER
+            orderer
+
+        
+    6.script/start-peer.sh（peer容器启动后）
+        对应的命令：/bin/bash -c '/scripts/start-peer.sh 2>&1 | tee /data/logs/peer1-org2.log'
+
+        1.awaitSetup（等待确认setup容器已经正确执行完成）
+
+        2.Generate server TLS cert and key pair for the peer:
+        fabric-ca-client enroll -d --enrollment.profile tls -u https://peer1-org1:peer1-org1pw@ica-org1:7054 -M /tmp/tls --csr.hosts $PEER_HOST
+
+        3.将tls用到的key和cert复制到相应的地方
+
+        4.Generate client TLS cert and key pair for the peer：
+            genClientTLSCert $PEER_NAME /data/tls/peer1-org1-client.crt /data/tls/peer1-org1-client.key（获取peer1-org1身份相应的材料，并复制到相应的地方）：
+                fabric-ca-client enroll -d --enrollment.profile tls -u $ENROLLMENT_URL -M /tmp/tls --csr.hosts $HOST_NAME
+
+        5.Generate client TLS cert and key pair for the peer CLI:
+            genClientTLSCert $PEER_NAME /$DATA/tls/$PEER_NAME-cli-client.crt /$DATA/tls/$PEER_NAME-cli-client.key(同上)
+
+        6.Enroll the peer to get an enrollment certificate and set up the core's local MSP directory
+            fabric-ca-client enroll -d -u $ENROLLMENT_URL -M $CORE_PEER_MSPCONFIGPATH
+            finishMSPSetup $CORE_PEER_MSPCONFIGPATH
+            copyAdminCert $CORE_PEER_MSPCONFIGPATH
+
+        7.启动peer
+            env | grep CORE
+            peer node start
+
+
+    7.script/run-fabric.sh（run容器启动后,注意：switchToAdminIdentity是切换到org的admin； switchToUserIdentity是切换到org的user）
+        对应的命令：  /bin/bash -c 'sleep 3;/scripts/run-fabric.sh 2>&1 | tee /data/logs/run.log; sleep 99999'
+
+        1.awaitSetup（等待确认setup容器已经正确执行完成）
+
+        2.initOrdererVars
+
+        3.创建channel
+            createChannel：
+                1.initPeerVars ${PORGS[0]} 1
+
+                2.switchToAdminIdentity
+                    fabric-ca-client enroll -d -u https://$ADMIN_NAME:$ADMIN_PASS@$CA_HOST:7054
+                    获取admin身份后，切换到admin身份
+
+                3.创建
+                peer channel create --logging-level=DEBUG -c $CHANNEL_NAME -f $CHANNEL_TX_FILE $ORDERER_CONN_ARGS
+                （ORDERER_CONN_ARGS="$ORDERER_PORT_ARGS --keyfile $CORE_PEER_TLS_CLIENTKEY_FILE --certfile $CORE_PEER_TLS_CLIENTCERT_FILE"）
+
+        4.依次将peer加入到channel中
+            1.initPeerVars $ORG $COUNT
+            
+            2.joinChannel
+                switchToAdminIdentity
+
+                peer channel join -b $CHANNEL_NAME.block
+
+        5.依次Update the anchor peers
+            同样的，设置环境变量，切换到admin身份
+            peer channel update -c $CHANNEL_NAME -f $ANCHOR_TX_FILE $ORDERER_CONN_ARGS
+
+        6.为每个组织内安装chaincode
+            同样的，设置环境变量，切换到admin身份
+            peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric-samples/chaincode/abac/go
+
+        7.Instantiate chaincode on the 1st peer of the 2nd org
+            makePolicy（可以自定义背书策略）
+
+            同样的，设置环境变量，切换到admin身份
+
+            peer chaincode instantiate -C $CHANNEL_NAME -n mycc -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "$POLICY" $ORDERER_CONN_ARGS
+
+        8.调用chaincode 
+            设置环境变量，切换到用户身份
+
+            chaincodeQuery 100
+
+            peer chaincode query -C $CHANNEL_NAME -n mycc -c '{"Args":["query","a"]}' >& log.txt
+
+        9.使用组织admin权限撤销某个用户的凭证：
+            revokeFabricUserAndGenerateCRL：
+                1.设置环境变量，切换到组织admin身份
+                2.fabric-ca-client revoke -d --revoke.name $USER_NAME --gencrl
+
+        10.取回config block 
+            fetchConfigBlock:
+                peer channel fetch config $CONFIG_BLOCK_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
+
+        11.创建带有CRL的config update envelope，然后更新channel的config block(使用工具configtxlator):
+            1.createConfigUpdatePayloadWithCRL：
+                1.启动configtxlator：configtxlator start & configtxlator_pid=$!
+                
+                2.Convert the config block protobuf to JSON：
+                    curl -X POST --data-binary @$CONFIG_BLOCK_FILE http://127.0.0.1:7059/protolator/decode/common.Block > config_block.json
+
+                3.Extract the config from the config block：
+                    jq .data.data[0].payload.data.config config_block.json > config.json
+
+                4.Update crl in the config json
+                    crl=$(cat $CORE_PEER_MSPCONFIGPATH/crls/crl*.pem | base64 | tr -d '\n')
+                    cat config.json | jq '.channel_group.groups.Application.groups.'"${ORG}"'.values.MSP.value.config.revocation_list = ["'"${crl}"'"]' > updated_config.json
+
+                5.Create the config diff protobuf
+                    curl -X POST --data-binary @config.json $CTLURL/protolator/encode/common.Config > config.pb
+                    curl -X POST --data-binary @updated_config.json $CTLURL/protolator/encode/common.Config > updated_config.pb
+                    curl -X POST -F original=@config.pb -F updated=@updated_config.pb $CTLURL/configtxlator/compute/update-from-configs -F channel=$CHANNEL_NAME > config_update.pb
+
+                6.Convert the config diff protobuf to JSON
+                    curl -X POST --data-binary @config_update.pb $CTLURL/protolator/decode/common.ConfigUpdate > config_update.json
+
+                7.Create envelope protobuf container config diff to be used in the "peer channel update" command to update the channel configuration block
+                    echo '{"payload":{"header":{"channel_header":{"channel_id":"'"${CHANNEL_NAME}"'", "type":2}},"data":{"config_update":'$(cat config_update.json)'}}}' > config_update_as_envelope.json
+                    curl -X POST --data-binary @config_update_as_envelope.json $CTLURL/protolator/encode/common.Envelope > $CONFIG_UPDATE_ENVELOPE_FILE
+
+                8.关闭configtxlator
+                    kill $configtxlator_pid
+
+            2.updateConfigBlock
+                peer channel update -f $CONFIG_UPDATE_ENVELOPE_FILE -c $CHANNEL_NAME $ORDERER_CONN_ARGS
+
+        12.撤销了权限后再进行查询会发现查询失败
+            同样的，设置环境变量，切换到User身份
+
+            此时再使用“peer chaincode query”会返回查询失败

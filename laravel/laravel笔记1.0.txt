@@ -1,0 +1,25 @@
+应用生命周期
+	index.php
+		1.加载composer自动自动加载器
+		2.从“bootstrap/app.php”获得laravel应用实例（执行laravel\framework\src\Illuminate\Foundation\Application.php的构造函数）
+		3.laravel应用实例的第一个任务是创建一个“application或service container”实例(在application的构造函数中将自身设置为container，因为application本身继承自一个container类)
+
+		4.application生成一个app/Http/Kernel的实例（为$kernel）来进行bootstrap（bootstrap中包括了配置应用，注册error handler之类的）
+		5.$kernel处理http请求得到$response
+		6.发送$response
+		7.$kernel->terminate($request, $response);
+
+
+middleware 相当于 filter
+
+Think of the Kernel as being a big black box that represents your entire application. Feed it HTTP requests and it will return HTTP responses.
+
+Service providers  <=>  components
+
+All service providers extend the Illuminate\Support\ServiceProvider class. Most service providers contain a register and a boot method. 
+
+All of Laravel's facades are defined in the Illuminate\Support\Facades namespace(Facades provide a "static" interface to classes that are available in the application's service container. )
+any custom facades you create, will extend the base Illuminate\Support\Facades\Facade class.(使用了__callStatic())
+
+
+Laravel's Contracts are a set of interfaces that define the core services provided by the framework. 

@@ -1,0 +1,37 @@
+Yii1.1
+
+CDbCriteria： 
+	represents a query criteria, such as conditions, ordering by, limit/offset. （查询条件，即用于select，）
+	用于CActiveRecord::find and CActiveRecord::findAll。。。（注意这里的查询参数可以是： 1.字符串 2.数组 3.CDbCriteria）
+	各数据库通用
+
+
+CDbCommand： 
+	represents an SQL statement to execute against a database. （所有的query语句，crud，代表完整的sql语句）
+	常用于 CDbConnection::createCommand
+
+	execute方法 ：insert， delete，update
+	query方法: selsect (包括queryRow，queryColumn，queryScalar) 
+
+	若SQL statement执行后返回了结果数据，结果数据可以用CDbDataReader来读取
+
+	底层是类PDO和类PDOStatement
+
+	构造CDbCommand的query参数可以是字符串或数组（注意：不可以是CDbCriteria）
+
+	可以通过CDbCommandBuilder将CDbCriteria转换成CDbCommand（实际上就是将CDbCriteria中的属性拼接成一个完成的sql语句，然后由CDbConnection的createCommand方法生成CDbCommand）
+
+	CDbCommand的_statement是PDOStatement的实例
+
+
+
+
+
+
+
+
+
+
+
+
+Yii2

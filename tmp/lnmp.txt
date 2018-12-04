@@ -1,0 +1,218 @@
+安装centos 7
+
+网络配置
+网络接口配置： 
+	NAT：/etc/sysyconfig/network-scritpts/ifctf-xxx 修改 ONBOOT=yes
+	HOST-ONLY：
+
+SELinux
+	临时关闭SELinux : setenforce 0
+	临时打开SELinux : setenforce 1
+	开机关闭SELinux : 编辑/etc/selinux/config文件，将SELINUX的值设置为disabled
+	查看SELinux状态 : 执行getenforce命令
+
+防火墙（firewalld）
+	临时关闭防火墙 : systemctl stop firewalld
+	永久防火墙开机自启动 : systemctl disable firewalld
+	临时打开防火墙 : systemctl start firewalld
+	防火墙开机启动 : systemctl enable firewalld
+	查看防火墙状态 : systemctl status firewalld
+
+软件源配置：
+	http://mirrors.aliyun.com/help/centos
+	http://mirrors.163.com/.help/centos.html
+	yum clean all
+	yum makecache
+
+ssh
+	默认开启
+
+常用软件
+	yum group list
+	gcc和开发环境 ： yum groupinstall "Development Tools"
+
+	yum install -y pcre-devel openssl-devel libxslt* perl-ExtUtils-Embed at gcc-c++ python subversion gperf make rpm-build git curl bzip2-devel libcurl-devel gd gd-devel t1lib t1lib-devel libmcrypt libmcrypt-devel libtidy libtidy-devel GeoIP-devel libatomic_ops-devel zlib-devel unzip libstdc++* net-snmp net-snmp* gmp gmp-devel openldap openldap-devel libpcap-devel glib2-devel libxml2-devel redis vim wget htop iftop libtool automake mlocate pam-devel gcc screen openssl iptables-services bash-completion* net-tools
+
+
+下载源码包
+
+检查pcre是否安装，安装pcre库是为了使Nginx支持具备URL重写的rewrite模块.openssl是nginx使用https服务要用的模块。
+	rpm -qa|grep -E 'pcre|pcre-devel'
+	# 如果无返回结果，证明pcre包未安装，使用以下命令下载安装
+	yum install pcre pcre-devel -y
+	rpm -qa|grep -E 'openssl|openssl-devel'
+	# 如果返回值为空，表示系统尚未安装，安装命令如下
+	yum install openssl openssl-devel
+	rpm -qa |grep gcc gcc-c++
+	# 如果未安装gcc，则编译过程中会出现./configure: error: C compiler cc is not found错误
+	yum install gcc gcc-c++
+
+建立用户和用户组
+	#追加一个www组  
+	groupadd -f www  
+	#追加一个nginx用户  
+	useradd -s /sbin/nologin -g www www  
+
+编译安装nginx
+./configure --user=www --group=www --prefix=/usr/local/nginx-1.xx.xx --with-http_stub_status_module --with-http_ssl_module
+# 编译参数说明：
+# --prefix=PATH                                         # 设置安装路径
+# --user=user --group=group                             # 设置运行nginx的用户和用户组
+# --with-http_stub_status_module                        # 激活状态信息
+# --with-http_ssl_module                                # 激活ssl功能
+# Nginx的大部分模块功能都会编译到软件中，不需要单独指定编译参数                   
+echo $?
+make && make install
+echo $?
+ln -s /usr/local/nginx-1.xx.xx /usr/local/nginx
+# 设立一条软连接，好处是程序中如果有引用nginx路径的地方，不需要修改程序，如果升级nginx版本，直接重新做一条连接即可
+
+
+接doc文件
+
+
+在放行80端口的情况下，可以通过浏览器访问。为了方便管理，我们在nginx目录下建立文件夹并修改nginx.conf文件：
+	#进入nginx文件夹
+	[root@centos7-test openresty-1.11.2.2]# cd /usr/local/nginx/
+	 
+	#新建文件夹
+	[root@centos7-test nginx]# mkdir vhosts.d
+	 
+	#修改配置文件
+	[root@centos7-test nginx]# vim nginx.conf
+	 
+	#将server段的内容全部注释掉
+	server {
+	... ...
+	}
+	 
+	#在最后一个}的上方添加以下内容并保存
+	include /usr/local/nginx/vhosts.d/*.ngx.conf;
+
+
+然后检查并重新加载nginx：
+	#检查配置文件是否正常
+	[root@centos7-test nginx]# nginx -t
+	nginx: the configuration file /usr/local/nginx/nginx.conf syntax is ok
+	nginx: configuration file /usr/local/nginx/nginx.conf test is successful
+	 
+	#重新加载nginx
+	[root@centos7-test nginx]# nginx -s reload
+
+
+然后新建一个虚拟空间
+	#新建虚拟目录
+	[root@centos7-test nginx]# mkdir -p /data/web/darlgel.com
+	 
+	#新建日志目录
+	[root@centos7-test nginx]# mkdir /usr/local/nginx/logs/darkgel_access.log
+	 
+	#新建虚拟空间配置文件
+	[root@centos7-test nginx]# vim /usr/local/nginx/vhosts.d/darkgel.com.conf
+		server{
+		    listen 80;
+		    root /data/web/darkgel.com;
+		    access_log /usr/local/nginx/logs/darkgel_access.log;
+
+		    location / {
+		        index index.html;
+		    }
+		}
+
+
+安装mysql（mariadb）
+	首先添加 MariaDB 的 YUM 配置文件 MariaDB.repo 文件。
+	# vi /etc/yum.repos.d/MariaDB.repo
+		# MariaDB 10.2 CentOS repository list - created 2017-06-14 09:14 UTC
+		# http://downloads.mariadb.org/mariadb/repositories/
+		[mariadb]
+		name = MariaDB
+		baseurl = http://yum.mariadb.org/10.2/centos7-amd64
+		gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+		gpgcheck=1
+
+	采用国内镜像加速（具体操作参考https://lug.ustc.edu.cn/wiki/mirrors/help/mariadb）
+	sudo yum install MariaDB-server MariaDB-client
+
+	MariaDB 包安装完毕后，立即启动数据库服务守护进程，并可以通过下面的操作设置，在操作系统重启后自动启动服务。
+		# systemctl start mariadb
+		# systemctl enable mariadb
+		# systemctl status mariadb
+
+	对 MariaDB 进行安全配置
+		# mysql_secure_installation
+
+	开始使用
+		# mysql -V
+		# mysqld --print-defaults
+		# mysql -u root -p
+
+
+
+编译安装php7
+
+下载 
+wget http://cn2.php.net/distributions/php-7.0.2.tar.gz
+
+安装依懒库 
+yum -y install libxml2 libxml2-devel openssl openssl-devel curl-devel libjpeg-devel libpng-devel freetype-devel libmcrypt-devel mhash gd gd-devel
+
+
+编译配置
+./configure --prefix=/usr/local/php7 \
+--with-config-file-path=/usr/local/php7/etc \
+--with-config-file-scan-dir=/usr/local/php7/etc/php.d \
+--with-mcrypt=/usr/include \
+--enable-mysqlnd \
+--with-mysqli \
+--with-pdo-mysql \
+--enable-fpm \
+--with-fpm-user=www \
+--with-fpm-group=www \
+--with-gd \
+--with-iconv \
+--with-zlib \
+--enable-xml \
+--enable-shmop \
+--enable-sysvsem \
+--enable-inline-optimization \
+--enable-mbregex \
+--enable-mbstring \
+--enable-ftp \
+--enable-gd-native-ttf \
+--with-openssl \
+--enable-pcntl \
+--enable-sockets \
+--with-xmlrpc \
+--enable-zip \
+--enable-soap \
+--without-pear \
+--with-gettext \
+--enable-session \
+--with-curl \
+--with-jpeg-dir \
+--with-freetype-dir \
+--enable-opcache
+
+调整php配置
+	从源码包中找到ini文件：php.ini-development  php.ini-production 复制到--with-config-file-path指定的目录下，并改名为php.ini
+
+启用php-fpm服务
+	配置文件在--with-config-file-path指定的目录下：php-fpm.conf.default，重命名为php-fpm.conf（同样处理的还有当前目录下的php-fpm.d目录下的配置文件）
+	使用源码中提供的脚本来启动php-fpm（在源码目录/sapi/fpm/init.d.php-fpm）
+		$ cp init.d.php-fpm /etc/init.d/php-fpm
+		$ chmod +x /etc/init.d/php-fpm
+		$ chkconfig --add php-fpm
+		$ chkconfig php-fpm on
+	使用service php-fpm start来启用php-fpm
+
+
+配置nginx对接php-fpm及站点(在server{...}中添加)
+	location ~ \.php$ {
+	    fastcgi_pass   127.0.0.1:9000;
+	    fastcgi_index  index.php;
+	    fastcgi_param  SCRIPT_FILENAME  /$document_root$fastcgi_script_name;
+	    include        fastcgi_params;
+	}
+
+重启nginx /usr/local/nginx/sbin/nginx -s reload

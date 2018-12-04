@@ -1,0 +1,146 @@
+(编码与译码)The protocol layer provides serialization and deserialization. Thrift supports the following protocols :
+	1.TBinaryProtocol - A straight-forward binary format encoding numeric values as binary, rather than converting to text.
+	2.TCompactProtocol - Very efficient,dense encoding of data (See details below).
+	3.TDenseProtocol - Similar to TCompactProtocol but strips off the meta information from what is transmitted, and adds it back in at the receiver.TDenseProtocol is still experimental and not yet available in the Java implementation.
+	4.TJSONProtocol - Uses JSON for encoding of data.
+	5.TSimpleJSONProtocol - A write-only protocol using JSON. Suitable for parsing by scripting languages
+	6.TDebugProtocol - Uses a humanreadable text format to aid in debugging.
+
+（网络读写）Tranport Layer:The transport layer is responsible for reading from and writing to the wire. Thrift supports the following:
+	1.TSocket - Uses blocking socket I/O for transport.
+	2.TFramedTransport - Sends data in frames, where each frame is preceded by a length. This transport is required when using a non-blocking server.
+	3.TFileTransport - This transport writes to a file. While this transport is not included with the Java implementation,it should be simple enough to implement.
+	4.TMemoryTransport - Uses memory for I/O. The Java implementation uses a simple ByteArrayOutputStream internally.
+	5.TZlibTransport - Performs compression using zlib. Used in conjunction with another transport. Not available in the Java implementation.
+
+(监听请求)Supported Servers: A server will be listening for connections to a port and will send the data it receives to the Processor to handle.
+	1.TSimpleServer - A single-threaded server using std blocking io. Useful for testing.
+	2.TThreadPoolServer - A multi-threaded server using std blocking io.
+	3.TNonblockingServer - A multi-threaded server using non-blocking io (Java implementation uses NIO channels).TFramedTransport must be used with this server.
+
+
+
+对于thrift文件中定义的service，需要有实现相应的handler，在handler中实现handler的相应方法
+	public class MultiplicationHandler implements MultiplicationService.Iface {
+		@Override
+		public int multiply(int n1, int n2) throws TException {
+		System.out.println("Multiply(" + n1 + "," + n2 + ")");
+		return n1 * n2;
+		}
+	}
+
+需要一个server类来监听请求
+	public class MultiplicationServer {
+		public static MultiplicationHandler handler;
+		public static MultiplicationService.Processor processor;
+		
+		public static void main(String [] args) {
+			try {
+				handler = new MultiplicationHandler();
+				processor = new MultiplicationService.Processor(handler);
+				
+				Runnable simple = new Runnable() {
+					public void run() {
+						simple(processor);
+					}
+				};
+	
+				new Thread(simple).start();
+
+			} catch (Exception x) {
+				x.printStackTrace();
+			}
+		}
+
+		public static void simple(MultiplicationService.Processor processor) {
+			try {
+				TServerTransport serverTransport = new TServerSocket(9090);
+				TServer server = new TSimpleServer(new Args(serverTransport).processor(processor));
+				System.out.println("Starting the simple server...");
+				server.serve();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+
+自己写client类来发起请求
+	TSocket transport = new TSocket("localhost",9090);
+	TBinaryProtocol protocol = new TBinaryProtocol(transport);
+	TMultiplexedProtocol mp1 = new TMultiplexedProtocol(protocol,"TopicService");
+	TopicService.Client service1 = newTopicService.Client(mp1);
+	TMultiplexedProtocol mp2 = new TMultiplexedProtocol(protocol,"UserService");
+	UserService.Client service2 = newUserService.Client(mp2);
+	transport.open();
+	service1.store(new Topic(668,"test topic","just a test!"));
+	service2.store1(new User(888,"tom","haha"));
+	System.out.println(service1.retrieve(168));
+	System.out.println(service2.retrieve1(999));
+	transport.close();
+
+
+return [
+    'class'=>'app\components\ThriftManager',
+    'serviceConfig' => [
+        'ThriftProductInfoService' => [
+            'dirName' => 'crm',
+            'className' => 'ThriftProductInfoService',
+            'serverHost' => '10.252.131.80',
+            'serverPort' => 50211,
+            'sendTimeout' => 3000,
+            'recvTimeout' => 3000,
+            'maxConnectTimes' => 2,
+        ],
+    ],
+];
+
+return [
+    'class'=>'app\components\ThriftManager',
+    'genDir' => 'gen',
+    'singleServiceConnection' => [
+    	'ThriftProductInfoService' => [
+            'dirName' => 'crm',
+            'className' => 'ThriftProductInfoService',
+            'serverHost' => '10.252.131.80',
+            'serverPort' => 50211,
+            'sendTimeout' => 3000,//毫秒
+            'recvTimeout' => 3000,
+            'maxConnectTimes' => 2,
+        ],
+    ],
+    'multipleServiceConnection' => [
+    	'10.252.131.80:50211' => [
+            'serverHost' => '10.252.131.80',
+            'serverPort' => 50211,
+            'sendTimeout' => 3000,
+            'recvTimeout' => 3000,
+            'maxConnectTimes' => 2,
+            'services' => [
+            	'ThriftProductInfoService' => [
+            		'dirName' => 'crm',
+            		'className' => 'ThriftProductInfoService',
+            	],
+            ],
+        ],
+    ],
+];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Learning Apache Thrift笔记
+thrift有提供自己的class loader： E:\data\web\blog\blog-php\vendor\packaged\thrift\src\Thrift\ClassLoader\ThriftClassLoader.php

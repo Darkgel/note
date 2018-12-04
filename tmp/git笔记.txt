@@ -1,0 +1,13 @@
+git checkout -b chat		创建并切换到chat分支，
+
+（上面的命令相当于）
+git branch chat
+git checkout chat
+
+//合并分支
+git checkout dev
+git merge chat
+
+除了使用 git merge 命令可以进行分支合并， git rebase 命令也可以进行分支合并。从项目代码的角度来看，这两个命令最终产生的项目是完全一样的。但两者的区别主要在于完成合并的流程不同。
+git merge 命令是在你完成了 chat 功能的提交之后，直接与 dev 分支进行合并。
+git rebase 命令会将 chat 分支中的所有提交（commit）取消掉，并且把它们临时保存为补丁（patch），然后将 chat 分支更新为最新的 dev 分支后，再把这些保存的补丁应用到 chat 分支中，最终完成了合并。

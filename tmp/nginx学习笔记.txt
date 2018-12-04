@@ -1,0 +1,74 @@
+浏览器缓存
+	expires [time|epoch|max|off]		===》 HTTP应答中的“Expires”和“Cache-Control” 
+	
+	
+编译安装nginx的例子
+	./configure --prefix=/usr/local/nginx-1.13.8 
+		然后创建一个链接/usr/local/nginx指向/usr/local/nginx-1.13.8
+		
+	开启http和http相关的功能
+		./configure --user=www-data --group=www-data --with-http_ssl_module --with-http_realip_module
+	
+	开启所有的module
+		./configure --user=www-data --group=www-data --with-http_ssl_module --with-http_realip_module --with-http_addition_module --with-http_xslt_module --with-http_image_filter_module --with-http_geoip_module --with-http_sub_module --with-http_dav_module --with-http_flv_module --with-http_mp4_module --with-http_gzip_static_module --with-http_random_index_module --with-http_secure_link_module --with-http_stub_status_module --with-http_perl_module --with-http_degradation_module --with-http_gunzip_module --with-http_auth_request_module
+		（上面这个命令依赖的库 : libgeoip,libgd,libxml2,libxslt）
+	
+	邮件服务器代理
+		./configure --user=www-data --group=www-data --with-mail --with-mail_ssl_module
+		
+	可以在objs/autoconf.err看到configure错误
+	
+	基本的安装依赖 ： GCC， PCRE（pcre-devel）， zlib（zlib-devel）， openssl（openssl-devel）
+	
+	
+user and group
+	nginx master process ： 必须以root运行。（在类unix系统中，以root运行的进程将被允许在任何端口打开tcp sockets，而其他用户只能打开一个监听的socket，并且端口号必须大于1024）
+	
+	nginx worker processes ： worker进程是由master进程以配置文件中的用户身份创建的。若没有配置的话，会以nobody的身份运行
+
+	
+常用命令
+	立即停止daemon ： nginx -s stop
+	优雅地停止daemon ： nginx -s quit
+	重新打开log文件 ： nginx -s reopen
+	重新加载配置 ： nginx -s reload
+	
+	注意 : 即使是停止daemon的时候，也会先检查configuration，如果验证失败，会导致停止daemon失败
+	强制结束进程 ： killall nginx
+	
+	
+	检查configuration ： nginx -t
+		nginx -t -c /home/alex/test.conf
+		
+	
+	nginx -V : 在该命令的输出中可以看到该nginx在configure时的参数
+	
+	添加额外的配置 ： nginx -g "timer_resolution 200ms";
+	
+
+配置nginx成为一个系统服务
+	init方式 ： 
+		1.在/etc/init.d/目录下新建文件nginx（注意，在有些系统下，/etc/init.d/目录实际上指向/etc/rc.d/init.d/）
+		2.nginx文件中添加
+			（没找到代码。。。）
+			
+	systemd方式 ： 
+		1.添加脚本（/etc/init.d/nginx,没有找到代码。。）
+		2.chmod +x /etc/init.d/nginx
+		
+	设置开启启动（不同系统不同方法）
+		1.debian ： update-rc.d -f nginx defaults
+		2.red hat : chkconfig nginx on
+		
+
+nginx配置
+	nginx ； 基本配置文件
+	mime.types  : 包含文件扩展名对应的MIME types的列表
+	fastcgi.conf : FastCGI相关的配置
+	proxy.conf : 代理相关的配置
+	
+	各个模块的配置包含在相应的块中（大括号）
+	
+		
+		
+		

@@ -1,0 +1,638 @@
+了解hyperledger其他的相关项目，看看有什么用，如何使用
+	marbles项目 : https://github.com/IBM-Blockchain/marbles,这是一个js的，具有web ui的application，用于演示“大理石交易”
+	Hyperledger Cello: Deployment tooling （区块链管理平台，支持部署、运行时管理和数据分析等功能，可以实现一套完整的 BaaS 系统的快速搭建。）
+	Hyperledger Composer: Package management tooling (重点了解,用于建模，提供rest api。。。)https://hyperledger.github.io/composer/introduction/introduction
+	Hyperledger Explorer: Analytics tooling （是一个区块链模块，目标是创造一个用户友好的网页应用。Explorer可以查看、调用、部署或者查询区块、交易以及相关数据、网络信息（名字、状态、节点列表）、链代码、交易家族以及任何其他存储在账本中的相关信息。）
+	Hyperledger Indy: Supporting independent identity
+
+	其他的区块链项目：
+		Hyperledger Iroha （主要针对移动设备）
+		Hyperledger Sawtooth （潜在应用方向为物联网、生产、金融以及企业的区块链框架）
+		Hyperledger Burrow
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+同一channel下才可以看到channel私有的账本
+
+ledger: world state + transaction log
+	world state（database） : 在给定时间点账本的状态
+	transaction log （history）：记录了所有transaction(由所有的transaction得出当前的 world state)
+
+
+主要提供的功能：identity，ordering（consensus）， encryption
+
+
+sample
+	1.cryptogen generate --config=./crypto-config.yaml
+	2.create the orderer genesis block ：
+		export FABRIC_CFG_PATH=$PWD(执行后就可以在当前目录下找到configtx.yaml)
+		configtxgen -profile TwoOrgsOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+	3.Create a Channel Configuration Transaction：
+		export CHANNEL_NAME=mychannel
+		configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org1MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org1MSP
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org2MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org2MSP
+	运行个容器
+	创建channel
+	将各peer加入channel
+	将chaincode安装到各peer
+	开始查询各peer
+
+
+sample（相当于byfn.sh的流程）
+	1.cryptogen generate --config=./crypto-config.yaml
+	2.create the orderer genesis block ：
+		export FABRIC_CFG_PATH=$PWD(执行后就可以在当前目录下找到configtx.yaml)
+		configtxgen -profile TwoOrgsOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+	3.Create a Channel Configuration Transaction：
+		export CHANNEL_NAME=mychannel
+		configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org1MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org1MSP
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org2MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org2MSP
+	4.start the network	
+		使用docker-compose启动网络（根据docker-compose-cli.yaml），即启动各容器
+			CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=<pick_a_value> docker-compose -f docker-compose-cli.yaml up -d
+	5.Create & Join Channel
+		（可以通过运行脚本'./scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'）
+		i.进入CLI容器 (fabric-tools)： docker exec -it cli bash
+		ii.创建channel（利用之前生成的channel configuration transaction，又称channel.tx，一下命令返回一个创世块-<channel-ID.block>）
+			export CHANNEL_NAME=mychannel;
+			peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem;
+		iii.将各peer加入channel（通过修改四个环境变量可以选择加入特定的peer，下面默认加入peer0.org1.example.com）
+			peer channel join -b <channel-ID.block>
+	6.Install & Instantiate Chaincode（将chaincode安装到需要的peer上）
+		i.将go代码放置到特定peer的文件系统中
+			peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
+		ii.在channel上实例化chaincode
+			peer chaincode instantiate -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C $CHANNEL_NAME -n mycc -v 1.0 -c '{"Args":["init","a", "100", "b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')"
+	7.可以开始查询、调用（还是在CLI容器中）
+		i.查询a
+			peer chaincode query -C $CHANNEL_NAME -n mycc -c '{"Args":["query","a"]}'
+		ii.调用（从a转移10到b，若再次查询就会发现a少了10）
+			peer chaincode invoke -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C $CHANNEL_NAME -n mycc -c '{"Args":["invoke","a","b","10"]}'
+
+		如何查看transaction？： 通过查看CLI容器的log可以看到具体的transaction
+			docker logs -f cli
+
+		如何查看chaincode日志？：通过查看独立的chaincode容器
+			有独立的chaincode容器（如：dev-peer0.org2.example.com-mycc-1.0）
+			docker logs dev-peer0.org2.example.com-mycc-1.0
+			docker logs dev-peer0.org1.example.com-mycc-1.0
+
+
+docker-compose-cli.yaml: 
+	CLI, orderer和四个peer容器
+	（另外还为node SDK提供了一个docker-compose-e2e-template.yaml）
+	（为使用CouchDB提供了docker-compose-couch.yaml: CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=<pick_a_value> docker-compose -f docker-compose-cli.yaml -f docker-compose-couch.yaml up -d）
+
+
+
+Crypto Generator(工具cryptogen)
+	生成加密相关材料：根据crypto-config.yaml(网络节点的拓扑结构),为每个组织及其组件生成相应的证书和keys
+	每个组织都分配了一个唯一的根证书（ca-cert）,这个证书绑定了该组织与相应的组件（peers，orderers）
+	生成的证书和key会保存在目录“crypto-config”中
+
+
+Configuration Transaction Generator(工具configtxgen)
+	用于生成以下4个configuration制品：
+		1.orderer genesis block（ordering service的创世block）
+		2.channel configuration transaction（在channel创建的时候传递给orderer）
+		3.两个anchor peer transactions - one for each Peer Org(配置当前channel中组织的anchor peer)
+	对应的配置文件：configtx.yaml（关于网络的定义，orderer和两个org）
+
+
+ChainCode
+	1.Creating the package:
+		peer chaincode package -n mycc -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -v 0 -s -S -i "AND('OrgA.admin')" ccpack.out
+	2.Package signing:
+		peer chaincode signpackage ccpack.out signedccpack.out
+	3.Installing chaincode:
+		peer chaincode install -n asset_mgmt -v 1.0 -p sacc
+	4.Instantiate(将chaincode绑定到channel):
+		peer chaincode instantiate -n sacc -v 1.0 -c '{"Args":["john","0"]}' -P "OR ('Org1.member','Org2.member')"
+
+
+MSP作为组件部署在各peer和orderer上
+
+
+Hyperledger Fabric中所有的transaction和communication都需要通过该entity的私钥（keystore）签名，然后在别处通过其公钥（signcerts）验证 
+
+
+
+byfn手动流程：
+	generate：
+		1.generateCerts：
+			cryptogen generate --config=./crypto-config.yaml
+
+		2.replacePrivateKey：
+			cp docker-compose-e2e-template.yaml docker-compose-e2e.yaml
+			cd crypto-config/peerOrganizations/org1.example.com/ca/
+			PRIV_KEY=$(ls *_sk)  （其实就是b725ac68fbb9a942f58bb24df302921ba7b8cb70cfd23843c0212b6cc07d47a6_sk）
+			回到目录first-network
+			
+			sed -i "s/CA1_PRIVATE_KEY/b725ac68fbb9a942f58bb24df302921ba7b8cb70cfd23843c0212b6cc07d47a6_sk/g" docker-compose-e2e.yaml
+			(替换字符串，对比docker-compose-e2e.yaml和docker-compose-e2e-template.yaml即可知)
+
+			cd crypto-config/peerOrganizations/org2.example.com/ca/
+			PRIV_KEY=$(ls *_sk) （其实就是d00a24a5bb6d0a1d76e512f999ae824980079fd5ba65dc682f28a69d0289f545_sk）
+			回到目录first-network
+
+			sed -i "s/CA2_PRIVATE_KEY/d00a24a5bb6d0a1d76e512f999ae824980079fd5ba65dc682f28a69d0289f545_sk/g" docker-compose-e2e.yaml
+			(替换字符串，对比docker-compose-e2e.yaml和docker-compose-e2e-template.yaml即可知)
+
+
+		3.generateChannelArtifacts
+
+			确保设置了环境变量： export FABRIC_CFG_PATH=${PWD}
+
+			Generating Orderer Genesis block： 
+				configtxgen -profile TwoOrgsOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+			Generating channel configuration transaction 'channel.tx'： 
+				configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID mychannel
+			Generating anchor peer update for Org1MSP：
+				configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org1MSPanchors.tx -channelID mychannel -asOrg Org1MSP
+			Generating anchor peer update for Org2MSP:
+				configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org2MSPanchors.tx -channelID mychannel -asOrg Org2MSP
+
+
+	up:
+		1.networkUp
+			如果“crypto-config”目录不存在，则先执行完generate流程
+			CHANNEL_NAME=mychannel TIMEOUT=10000 DELAY=3 LANG=golang docker-compose -f docker-compose-cli.yaml up -d（启动并运行各容器）  注意：cli容器启动后会自动运行一些命令，手动时应先注释掉
+			
+			docker logs -f cli
+
+			peer容器：peer node start
+			orderer容器：orderer
+			cli容器 : /bin/bash -c './scripts/script.sh mychannel 3 golang; sleep 10000'(运行的脚本即：first-network/scripts/script.sh)
+
+
+first-network/scripts/script.sh分析（运行于cli容器）
+	export CHANNEL_NAME=mychannel
+
+	chaincode对应的目录： first-network/../chaincode/  (对应的容器内目录：/opt/gopath/src/github.com/)
+	1.createChannel
+		setGlobals 0 （调用setGlobals函数，配置变量CORE_PEER_LOCALMSPID，CORE_PEER_TLS_ROOTCERT_FILE，CORE_PEER_MSPCONFIGPATH，CORE_PEER_ADDRESS）
+		
+		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx >&log.txt
+		或
+		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA >&log.txt
+		（peer channel create -o orderer.example.com:7050 -c mychannel -f ./channel-artifacts/channel.tx --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem）
+
+	2.joinChannel
+		依次 0,1,2,3
+		setGlobals 0（1,2,3）
+		
+		joinWithRetry 0
+			peer channel join -b $CHANNEL_NAME.block  >&log.txt (因为环境变量不同，所以每次对应的peer不同)
+
+
+	3.updateAnchorPeers 0
+		PEER=0
+		setGlobals $PEER
+
+		peer channel update -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/${CORE_PEER_LOCALMSPID}anchors.tx >&log.txt
+		或
+		peer channel update -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/${CORE_PEER_LOCALMSPID}anchors.tx --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA >&log.txt
+
+	4.updateAnchorPeers 2
+		同3
+
+	5.installChaincode 0
+		PEER=$1
+		setGlobals $PEER
+		peer chaincode install -n mycc -v 1.0 -l ${LANGUAGE} -p ${CC_SRC_PATH} >&log.txt (将chaincode安装到相应peer的文件系统中)
+		peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
+
+	6.installChaincode 2
+		同5
+
+	7.instantiateChaincode 2（将会启动相应的chaincode容器）
+		PEER=$1
+		setGlobals $PEER
+
+		peer chaincode instantiate -o orderer.example.com:7050 -C $CHANNEL_NAME -n mycc -l ${LANGUAGE} -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
+		或
+		peer chaincode instantiate -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n mycc -l ${LANGUAGE} -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
+
+		peer chaincode instantiate -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C $CHANNEL_NAME -n mycc -v 1.0 -c '{"Args":["init","a", "100", "b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')"
+
+		查询peer chaincode query -C $CHANNEL_NAME -n mycc -c '{"Args":["query","a"]}'
+
+		invoke：
+			peer chaincode invoke -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C $CHANNEL_NAME -n mycc -c '{"Args":["invoke","a","b","10"]}'
+
+	8.chaincodeQuery 0 100  （）
+		PEER=$1
+		setGlobals $PEER
+		peer chaincode query -C $CHANNEL_NAME -n mycc -c '{"Args":["query","a"]}' >&log.txt
+
+	9.chaincodeInvoke 0
+		PEER=$1
+		setGlobals $PEER
+
+		peer chaincode invoke -o orderer.example.com:7050 -C $CHANNEL_NAME -n mycc -c '{"Args":["invoke","a","b","10"]}' >&log.txt
+		或
+		peer chaincode invoke -o orderer.example.com:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n mycc -c '{"Args":["invoke","a","b","10"]}' >&log.txt
+
+	10.installChaincode 3
+		同5
+
+	11.chaincodeQuery 3 90
+		同8
+
+
+将持久化的数据另外挂载：
+	1.peer：
+		volumes:
+			- /var/hyperledger/peer0:/var/hyperledger/production
+	2.CouchDB：
+		volumes:
+			- /var/hyperledger/couchdb0:/opt/couchdb/data
+
+
+
+更新ledger的流程
+	1.propose
+	2.endorse
+	3.send to orderer and write to every peer's ledger
+
+
+从开发者的角度来理解chaincode
+	chaincode api
+		所有的chaincode程序都必须实现一些必要的chaincode interface
+		init方法： 当chaincode接收到instantiate或upgrade transaction请求时会调用该方法
+		invoke方法：当chaincode接收到invoke transaction请求时会调用该方法
+
+
+从区块链管理员的角度来理解chaincode
+	chaincode的生命周期（有相应的命令）：
+		1.package
+			chaincode package包含3部分：
+				chaincode代码本身，以及一些相关的属性（如版本等）
+				instantiation policy（可选）：实例化chaincode时需要通过该验证
+				chaincode owner的签名(用于：1.声明对chaincode的所有权; 2.允许对package内容的核实; 3.检查package是否被篡改)
+
+			打包chaincode的2种方法：
+				1.chaincode有多个owner：
+					生成一个signed chaincode package：
+						peer chaincode package -n mycc -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -v 0 -s -S -i "AND('OrgA.admin')" ccpack.out
+
+				2.chainco只有一个owner：
+
+			package signing
+				peer chaincode signpackage ccpack.out signedccpack.out
+
+
+		2.install
+			将源码大打包成ChaincodeDeploymentSpec (or CDS)，并安装到相应的peer（处于保密性要求，只能安装在背书节点）上
+			注意：非背书节点无法执行chaincode，但是依然可以验证并提交transaction到ledger上
+			To install a chaincode, send a SignedProposal to the lifecycle system chaincode (LSCC) 
+			peer chaincode install -n asset_mgmt -v 1.0 -p sacc
+
+		3.instantiate
+			The instantiate transaction invokes the lifecycle System Chaincode (LSCC) to create and initialize a chaincode on a channel. 
+			instantiate的时候必须满足SignedCDS中的instantiation policy，同时必须是channel的writer
+			在实例化的时候会建立起背书策略（endorsement policy）
+			peer chaincode instantiate -n sacc -v 1.0 -c '{"Args":["john","0"]}' -P "OR ('Org1.member','Org2.member')"
+
+		4.upgrade
+			改变version
+			与instantiate一样，需要检验instantiation policy
+
+system chaincode
+	The current list of system chaincodes:
+		1. LSCC Lifecycle system chaincode handles lifecycle requests described above.
+		2. CSCC Configuration system chaincode handles channel configuration on the peer side.
+		3. QSCC Query system chaincode provides ledger query APIs such as getting blocks and transactions.
+		4. ESCC Endorsement system chaincode handles endorsement by signing the transaction proposal response.
+		5. VSCC Validation system chaincode handles the transaction validation, including checking endorsement policy and multiversioning concurrency control.
+
+
+
+Membership Service Providers (MSP)
+	An MSP may define their own notion of identity, and the rules by which those identities are governed (identity validation) and authenticated (signature generation and verification).
+	
+	为了建立起一个MSP实例，每个peer和orderer上都需要有相应的配置（for signing），channel上也需要
+
+	每个MSP都必须有一个在网络中唯一的name（MSP Identifier/MSP ID）,MSP信息会被写入到channel的genesis block中
+
+	需要的一些底层构件（RFC5280）：
+		• A list of self-signed (X.509) certificates to constitute the root of trust
+		• A list of X.509 certificates to represent intermediate CAs this provider considers for certificate validation; these
+		certificates ought to be certified by exactly one of the certificates in the root of trust; intermediate CAs are
+		optional parameters
+		• A list of X.509 certificates with a verifiable certificate path to exactly one of the certificates of the root of trust
+		to represent the administrators of this MSP; owners of these certificates are authorized to request changes to this
+		MSP configuration (e.g. root CAs, intermediate CAs)
+		• A list of Organizational Units that valid members of this MSP should include in their X.509 certificate; this is
+		an optional configuration parameter, used when, e.g., multiple organisations leverage the same root of trust, and
+		intermediate CAs, and have reserved an OU field for their members
+		77
+		hyperledger-fabricdocs Documentation, Release master
+		• A list of certificate revocation lists (CRLs) each corresponding to exactly one of the listed (intermediate or root)
+		MSP Certificate Authorities; this is an optional parameter
+		• A list of self-signed (X.509) certificates to constitute the TLS root of trust for TLS certificate.
+		• A list of X.509 certificates to represent intermediate TLS CAs this provider considers; these certificates ought to
+
+
+		MSP相关构件的目录（$MY_PATH/mspconfig ）：
+		1. a folder （admincerts） to include PEM files each corresponding to an administrator certificate
+		2. a folder （cacerts） to include PEM files each corresponding to a root CA’s certificate
+		3. (optional) a folder （intermediatecerts） to include PEM files each corresponding to an intermediate CA’s certificate
+		4. (optional) a file （config.yaml） to include information on the considered OUs; the latter are defined as pairs of <Certificate,OrganizationalUnitIdentifier> entries of a yaml array called OrganizationalUnitIdentifiers , where Certificate represents the relative path to the certificate of the certificate authority (root or intermediate) that should be considered for certifying members of this organizational unit (e.g. ./cacerts/cacert.pem), and OrganizationalUnitIdentifier represents the actual string as expected to appear in X.509 certificate OU-field (e.g. “COP”)
+		5. (optional) a folder （crls） to include the considered CRLs
+		6. a folder （keystore） to include a PEM file with the node’s signing key; we emphasise that currently RSA keys are not supported
+		7. a folder （signcerts） to include a PEM file with the node’s X.509 certificate
+		8. (optional) a folder （tlscacerts） to include PEM files each corresponding to a TLS root CA’s certificate
+		9. (optional) a folder （tlsintermediatecerts） to include PEM files each corresponding to an intermediate TLS CA’s certificate
+
+	在每个节点（peer/orderer）的docker compose配置文件中需要配置mspconfig目录的路径，以及该节点的MSP ID（在容器的环境变量中）
+	对于orderer节点，必须要提供channel相应的genesis block
+
+	At the genesis of the system, verification parameters of all the MSPs that appear in the network need to be specified, and included in the system channel’s genesis block.（包括了MSP identifier，the root of trust certificates， intermediate CA 和 admin certificates，以及 OU specification 和CRLs）
+
+	最佳实践：
+	1.organization与MSP一一映射
+
+
+Channel Configuration (configtx)
+	Channel configuration(configtx) has the following important properties:
+	1. Versioned: All elements of the configuration have an associated version which is advanced with every modification. Further, every committed configuration receives a sequence number.
+	2. Permissioned: Each element of the configuration has an associated policy which governs whether or not modification to that element is permitted. Anyone with a copy of the previous configtx (and no additional info) may verify the validity of a new config based on these policies.
+	3. Hierarchical: A root configuration group contains sub-groups, and each group of the hierarchy has associated
+	values and policies. These policies can take advantage of the hierarchy to derive policies at one level from
+	policies of lower levels.
+
+
+
+chaincode启动过程
+	!!!Peer 通过调用 Docker API来创建和启动 Chaincode 容器。Chaincode 容器启动后跟 Peer 之间创建 gRPC 连接，双方通过发送 ChaincodeMessage 来进行交互通信。Chaincode 容器利用 core.chaincode.shim包提供的接口来向 Peer 发起请求。
+	1.首先会进行初始化。包括读取默认配置，创建到 Peer 的gRPC 连接
+	2.之后，利用创建好的 gRPC 连接开始向 Peer 发送第一个 gRPC 消息：ChaincodeMessage_REGISTER，将自身注册到 Peer 上。注册成功后开始消息处理循环，等待接收来自 Peer 的消息以及自身的状态迁移（ nextState） 消息。
+	3.Peer 侧发出 ChaincodeMessage_INIT 消息给链码容器，触发链码侧初始化操作。完成初始化后，链码容器进入可被调用（invoke）状态
+	4.链码被调用时，Peer 发出 ChaincodeMessage_TRANSACTION 消息给链码。链码收到 ChaincodeMessage_TRANSACTION 消息，会调用 Invoke() 方法，根据Invoke 方法中用户实现的逻辑返回响应
+	5.在上述过程中，Peer 和链码侧还会定期的发送 ChaincodeMessage_KEEPALIVE 消息给对方，以确保彼此在线
+
+Peer 背书提案过程
+	注意：这些交易提案可能包括链码的安装、实例化、升级、调用、查询；以及 Peer 节点加入和列出通道操作。
+
+	背书过程主要完成如下操作：
+		1.检查提案消息的合法性，以及相关的权限；
+		2.模拟执行提案：启动链码容器，对世界状态的最新版本进行临时快照，基于它执行链码，将结果记录在读写集中；
+		3.对提案内容和读写集合进行签名，并返回提案响应消息。
+
+	检查提案合法性：
+		1.调用 ValidateProposalMessage() 方法对签名的提案进行格式检查，主要包括：
+			Channel 头部格式：是否合法头部类型，由 validateChannelHeader() 完成；
+			签名头格式：是否包括了 nonce 和creators 数据，由validateSignatureHeader() 完成；
+			签名域：creator 证书 MSP 检查是否合法，签名是否正确，由checkSignatureFromCreator() 完成。
+		2.如果是系统链码调用（ SCC） ，检查是否是允许从外部调用的三种 SCC 之一：cscc、lscc、qscc 或 rscc；
+		3.如果 chainID 不为空，获取对应 chain 的账本结构，并检查 TxID 唯一性，确保同一交易未曾提交到账本结构中；
+		4.对于用户链码调用，需要检查 ACL：资源为 PROPOSE ，默认策略是签名提案者在通道上拥有写权限（CHANNELWRITERS ）
+
+	模拟执行提案：
+		1.如果 chainID 不为空，获取对应账本的交易模拟器（ TxSimulator） 和历史查询器（ HistoryQueryExecutor） ，这两个结构将在后续执行链码时被使用。
+		2.如果 chainID 不为空，调用 simulateProposal() 方法获取模拟执行的结果，检查返回的响应 response 的状态，若不小于错误 500 则创建并返回一个失败的ProposalResponse。
+
+	对提案内容和读写集合进行签名
+		1.chainID 非空情况下，调用 endorseProposal() 方法利用 ESCC，对之前得到的模拟执行的结果进行背书。返回 ProposalResponse，检查 simulateProposal 返回的response 的状态，若不小于错误阈值 400（ 被背书节点反对） ，返回ProposalResponse 及链码错误 chaincodeError（ endorseProposal 里有检查链码执行结果的状态，而 simulateProposal 没有检查） 。
+		2.将 response.Payload 赋给 ProposalResponse.Response.Payload（ 因为simulateProposal 返回的 response 里面包含链码调用的结果） 。
+		3.返回响应消息 ProposalResponse。
+
+
+Orderer 节点启动过程
+	gRPC 服务结构初始化：
+		1.创建新的 MSP 签名结构
+		2.初始化 Registrar 结构来管理各个账本结构
+		3.启动共识过程
+		4.创建 gRPC 服务端结构。
+	gRPC 服务启动：
+		初始化 gRPC 服务结构，完成绑定并启动监听。将 gRPC 相关的服务结构进行初始化，并绑定到 gRPC 请求上。分别响应 Deliver()和 Broadcast() 两个 gRPC 调用。
+
+
+
+
+
+
+
+
+MSP目录结构示例：
+crypto-config
+├── ordererOrganizations
+│   └── example.com
+│       ├── ca
+│       │   ├── a0606a4a860a1e31c90a23788da6f3b6b74925ed0d23061af4899409ba46ae6a_sk
+│       │   └── ca.example.com-cert.pem
+│       ├── msp
+│       │   ├── admincerts
+│       │   │   └── Admin@example.com-cert.pem
+│       │   ├── cacerts
+│       │   │   └── ca.example.com-cert.pem
+│       │   └── tlscacerts
+│       │       └── tlsca.example.com-cert.pem
+│       ├── orderers
+│       │   └── orderer.example.com
+│       │       ├── msp
+│       │       │   ├── admincerts
+│       │       │   │   └── Admin@example.com-cert.pem
+│       │       │   ├── cacerts
+│       │       │   │   └── ca.example.com-cert.pem
+│       │       │   ├── keystore
+│       │       │   │   └── 4d2f776c0fef8eac3f460a7c3558dc7859c4fe458e262e674a6c23f242ea33d1_sk
+│       │       │   ├── signcerts
+│       │       │   │   └── orderer.example.com-cert.pem
+│       │       │   └── tlscacerts
+│       │       │       └── tlsca.example.com-cert.pem
+│       │       └── tls
+│       │           ├── ca.crt
+│       │           ├── server.crt
+│       │           └── server.key
+│       ├── tlsca
+│       │   ├── 8d2186556c85d515e737d0c0da8d0d7672785b685cb503bcb95e53dcc279fba7_sk
+│       │   └── tlsca.example.com-cert.pem
+│       └── users
+│           └── Admin@example.com
+│               ├── msp
+│               │   ├── admincerts
+│               │   │   └── Admin@example.com-cert.pem
+│               │   ├── cacerts
+│               │   │   └── ca.example.com-cert.pem
+│               │   ├── keystore
+│               │   │   └── 1deeab5433fa6e5f045eb763109d6165268fba153211af1281f00d45f54b1022_sk
+│               │   ├── signcerts
+│               │   │   └── Admin@example.com-cert.pem
+│               │   └── tlscacerts
+│               │       └── tlsca.example.com-cert.pem
+│               └── tls
+│                   ├── ca.crt
+│                   ├── server.crt
+│                   └── server.key
+└── peerOrganizations
+    └── org1.example.com
+        ├── ca
+        │   ├── 4239aa0dcd76daeeb8ba0cda701851d14504d31aad1b2ddddbac6a57365e497c_sk
+        │   ├── ca.org1.example.com-cert.pem
+        │   └── org1.example.com-cert.pem
+        ├── msp
+        │   ├── admincerts
+        │   │   └── Admin@org1.example.com-cert.pem
+        │   ├── cacerts
+        │   │   └── ca.org1.example.com-cert.pem
+        │   └── tlscacerts
+        │       └── tlsca.org1.example.com-cert.pem
+        ├── peers
+        │   └── peer0.org1.example.com
+        │       ├── msp
+        │       │   ├── admincerts
+        │       │   │   └── Admin@org1.example.com-cert.pem
+        │       │   ├── cacerts
+        │       │   │   └── ca.org1.example.com-cert.pem
+        │       │   ├── keystore
+        │       │   │   └── 46be1d569fe68f33e517c9e0072a0ccfbfb42727480fb8c8d0223af321a7893d_sk
+        │       │   ├── signcerts
+        │       │   │   └── peer0.org1.example.com-cert.pem
+        │       │   └── tlscacerts
+        │       │       └── tlsca.org1.example.com-cert.pem
+        │       └── tls
+        │           ├── ca.crt
+        │           ├── server.crt
+        │           └── server.key
+        ├── tlsca
+        │   ├── ed3fd82393e95fc2c475afc113c8d2c591f745d1babc4d6d9cce0a1acc168acb_sk
+        │   └── tlsca.org1.example.com-cert.pem
+        └── users
+            ├── Admin@org1.example.com
+            │   ├── msp
+            │   │   ├── admincerts
+            │   │   │   └── Admin@org1.example.com-cert.pem
+            │   │   ├── cacerts
+            │   │   │   └── ca.org1.example.com-cert.pem
+            │   │   ├── keystore
+            │   │   │   └── cd96d5260ad4757551ed4a5a991e62130f8008a0bf996e4e4b84cd097a747fec_sk
+            │   │   ├── signcerts
+            │   │   │   └── Admin@org1.example.com-cert.pem
+            │   │   └── tlscacerts
+            │   │       └── tlsca.org1.example.com-cert.pem
+            │   └── tls
+            │       ├── ca.crt
+            │       ├── server.crt
+            │       └── server.key
+            └── User1@org1.example.com
+                ├── msp
+                │   ├── admincerts
+                │   │   └── User1@org1.example.com-cert.pem
+                │   ├── cacerts
+                │   │   └── ca.org1.example.com-cert.pem
+                │   ├── keystore
+                │   │   └── c75bd6911aca808941c3557ee7c97e90f3952e379497dc55eb903f31b50abc83_sk
+                │   ├── signcerts
+                │   │   └── User1@org1.example.com-cert.pem
+                │   └── tlscacerts
+                │       └── tlsca.org1.example.com-cert.pem
+                └── tls
+                    ├── ca.crt
+                    ├── server.crt
+                    └── server.key
+
+
+关于channel的MSP配置必须正确的写入到genesis block中（使用configtxgen工具，mspconfig目录，configtx.yaml）
+
+
+Channel Configuration (configtx)
+	channel的配置（configuration）会以transaction的形式写入到blockchain中，每个transaction的类型为“HeaderType_CONFIG”（这些block也被称为 Configuration Blocks，其中第一个block称为 Genesis Block）
+
+	结构：  fabric/protos/common/configtx.proto
+
+	channel配置更新： HeaderType_CONFIG_UPDATE transaction
+
+
+
+Channel Configuration (configtxgen)
+	需提供的配置文件：configtx.yaml
+	configtx.yaml文件的3个主要部分：
+		1.Profiles ： 会引用Organizations和default中定义的内容，主要的配置
+		2.Organizations ：MSP等相关配置
+		3.default ： 一些Order和Application的配置，例如 BatchTimeout 
+
+	使用configtxgen根据配置文件生成工件
+		configtxgen -profile <profile_name> -outputBlock orderer_genesisblock.pb
+		configtxgen -profile <profile_name> -channelID <channel_name> -outputCreateChannelTx <tx_filename>
+
+	使用configtxgen查看configuration blocks，configuration transactions（-inspectBlock，-inspectChannelCreateTx ）
+		configtxgen -channelID foo -inspectBlock foo_genesisblock.pb
+
+
+Reconfiguring with configtxlator
+	configtxlator ： configtx translator 
+
+	使用方法：
+		1. SDK retrieves latest config
+		2. configtxlator produces human readable version of config
+		3. User or application edits the config
+		4. configtxlator is used to compute config update representation of changes to the config
+		5. SDK submits signs and submits config
+
+	启动configtxlator服务器（默认监听7059）
+		configtxlator start
+
+	发起请求
+		curl -X POST --data-binary @configuration_block.pb http://127.0.0.1:7059/protolator/decode/common.Block
+		其他可以被translate的： common.Block , common.Envelope ,common.ConfigEnvelope , common.ConfigUpdateEnvelope , common.Config , and common.ConfigUpdate
+		类似的，有：http://127.0.0.1:7059/protolator/encode/common.Block
+
+		更多例子：
+			curl -X POST -F channel=desiredchannel -F original=@original_config.pb -F updated=@updated_config.pb http://127.0.0.1:7059/configtxlator/compute/update-from-configs
+
+	可以使用configtxlator更新channel配置
+
+
+
+
+channel:
+	1.members(org)
+	2.anchor peers per member
+	3.shared ledger
+	4.chaincode application
+	5.ordering service nodes
+
+
+anchor peer可以属于多个channel，因此它可以拥有多个账本，但是账本的信息无法从一个channel传递到另一个channel
+
+
+
+channel的创建过程
+	当orderer接收到一个来自“不存在”的channel相关的CONFIG_UPDATE时，orderer会假设这是一个channel创建请求，并执行以下操作：
+	
+	1.orderer先从请求中识别出创建该channel所需的consortium（通过查看当前config中的Consortiums配置）
+	
+	2.orderer确认请求中Application group中的organizations是存在于相应consortium中，并且Application group的version 为1（不应该是0吗？）
+	
+	3.orderer确认条件：如果consortium中包含成员，则新的channel中也必须有成员
+	
+	4.orderer根据ordering system channel中的 Orderer group模板，创建一个模板配置，并且根据请求中的参数创建一个Application 
+	group，然后设置其mod_policy为“ChannelCreationPolicy”（这个是Consortium中的配置）。注意：在创建新的配置的时候都需要评估是否满足policy
+	
+	5.orderer将CONFIG_UPDATE请求中的数据作为update填充到模板配置中（需要评估是否满足policy）
+	
+	6.带有新channel配置信息的CONFIG transaction将被封装，然后发布到ordering system channel（在这里被排序）。排序完成后，channel就创建了
+
+
+
+

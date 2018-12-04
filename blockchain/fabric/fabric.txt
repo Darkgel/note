@@ -1,0 +1,217 @@
+同一channel下才可以看到channel私有的账本
+
+ledger: world state + transaction log
+	world state（database） : 在给定时间点账本的状态
+	transaction log （history）：记录了所有transaction(由所有的transaction得出当前的 world state)
+
+
+主要提供的功能：identity，ordering（consensus）， encryption
+
+
+sample
+	1.cryptogen generate --config=./crypto-config.yaml
+	2.create the orderer genesis block ：
+		export FABRIC_CFG_PATH=$PWD(执行后就可以在当前目录下找到configtx.yaml)
+		configtxgen -profile TwoOrgsOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+	3.Create a Channel Configuration Transaction：
+		export CHANNEL_NAME=mychannel
+		configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org1MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org1MSP
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org2MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org2MSP
+	运行个容器
+	创建channel
+	将各peer加入channel
+	将chaincode安装到各peer
+	开始查询各peer
+
+
+sample（相当于byfn.sh的流程）
+	1.cryptogen generate --config=./crypto-config.yaml
+	2.create the orderer genesis block ：
+		export FABRIC_CFG_PATH=$PWD(执行后就可以在当前目录下找到configtx.yaml)
+		configtxgen -profile TwoOrgsOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+	3.Create a Channel Configuration Transaction：
+		export CHANNEL_NAME=mychannel
+		configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org1MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org1MSP
+		configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org2MSPanchors.tx -channelID $CHANNEL_NAME -asOrg Org2MSP
+	4.start the network	
+		使用docker-compose启动网络（根据docker-compose-cli.yaml），即启动各容器
+			CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=<pick_a_value> docker-compose -f docker-compose-cli.yaml up -d
+	5.Create & Join Channel
+		（可以通过运行脚本'./scripts/script.sh ${CHANNEL_NAME}; sleep $TIMEOUT'）
+		i.进入CLI容器 (fabric-tools)： docker exec -it cli bash
+		ii.创建channel（利用之前生成的channel configuration transaction，又称channel.tx，一下命令返回一个创世块-<channel-ID.block>）
+			export CHANNEL_NAME=mychannel;
+			peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem;
+		iii.将各peer加入channel（通过修改四个环境变量可以选择加入特定的peer，下面默认加入peer0.org1.example.com）
+			peer channel join -b <channel-ID.block>
+	6.Install & Instantiate Chaincode（将chaincode安装到需要的peer上）
+		i.将go代码放置到特定peer的文件系统中
+			peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02
+		ii.在channel上实例化chaincode
+			peer chaincode instantiate -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C $CHANNEL_NAME -n mycc -v 1.0 -c '{"Args":["init","a", "100", "b","200"]}' -P "OR ('Org1MSP.member','Org2MSP.member')"
+	7.可以开始查询、调用（还是在CLI容器中）
+		i.查询a
+			peer chaincode query -C $CHANNEL_NAME -n mycc -c '{"Args":["query","a"]}'
+		ii.调用（从a转移10到b，若再次查询就会发现a少了10）
+			peer chaincode invoke -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C $CHANNEL_NAME -n mycc -c '{"Args":["invoke","a","b","10"]}'
+
+		如何查看transaction？： 通过查看CLI容器的log可以看到具体的transaction
+			docker logs -f cli
+
+		如何查看chaincode日志？：通过查看独立的chaincode容器
+			有独立的chaincode容器（如：dev-peer0.org2.example.com-mycc-1.0）
+			docker logs dev-peer0.org2.example.com-mycc-1.0
+			docker logs dev-peer0.org1.example.com-mycc-1.0
+
+
+docker-compose-cli.yaml: 
+	CLI, orderer和四个peer容器
+	（另外还为node SDK提供了一个docker-compose-e2e-template.yaml）
+	（为使用CouchDB提供了docker-compose-couch.yaml: CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=<pick_a_value> docker-compose -f docker-compose-cli.yaml -f docker-compose-couch.yaml up -d）
+
+
+
+Crypto Generator(工具cryptogen)
+	生成加密相关材料：根据crypto-config.yaml(网络节点的拓扑结构),为每个组织及其组件生成相应的证书和keys
+	每个组织都分配了一个唯一的根证书（ca-cert）,这个证书绑定了该组织相应的组件（peers，orders）
+	生成的证书和key会保存在目录“crypto-config”中
+
+
+Configuration Transaction Generator(工具configtxgen)
+	用于生成以下4个configuration制品：
+		1.orderer genesis block（ordering service的创世block）
+		2.channel configuration transaction（在channel创建的时候传递给orderer）
+		3.两个anchor peer transactions - one for each Peer Org(配置当前channel中组织的anchor peer)
+	对应的配置文件：configtx.yaml（关于网络的定义，orderer和两个org）
+
+
+ChainCode
+	1.Creating the package:
+		peer chaincode package -n mycc -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 -v 0 -s -S -i "AND('OrgA.admin')" ccpack.out
+	2.Package signing:
+		peer chaincode signpackage ccpack.out signedccpack.out
+	3.Installing chaincode:
+		peer chaincode install -n asset_mgmt -v 1.0 -p sacc
+	4.Instantiate(将chaincode绑定到channel):
+		peer chaincode instantiate -n sacc -v 1.0 -c '{"Args":["john","0"]}' -P "OR ('Org1.member','Org2.member')"
+
+
+MSP作为组件部署在各peer和orderer上
+
+
+
+
+byfn手动流程：
+	generate：
+		1.generateCerts：
+			cryptogen generate --config=./crypto-config.yaml
+
+		2.replacePrivateKey：
+			cp docker-compose-e2e-template.yaml docker-compose-e2e.yaml
+			cd crypto-config/peerOrganizations/org1.example.com/ca/
+			PRIV_KEY=$(ls *_sk)  （其实就是b725ac68fbb9a942f58bb24df302921ba7b8cb70cfd23843c0212b6cc07d47a6_sk）
+			回到目录first-network
+			
+			sed -i "s/CA1_PRIVATE_KEY/b725ac68fbb9a942f58bb24df302921ba7b8cb70cfd23843c0212b6cc07d47a6_sk/g" docker-compose-e2e.yaml
+			(替换字符串，对比docker-compose-e2e.yaml和docker-compose-e2e-template.yaml即可知)
+
+			cd crypto-config/peerOrganizations/org2.example.com/ca/
+			PRIV_KEY=$(ls *_sk) （其实就是d00a24a5bb6d0a1d76e512f999ae824980079fd5ba65dc682f28a69d0289f545_sk）
+			回到目录first-network
+
+			sed -i "s/CA2_PRIVATE_KEY/d00a24a5bb6d0a1d76e512f999ae824980079fd5ba65dc682f28a69d0289f545_sk/g" docker-compose-e2e.yaml
+			(替换字符串，对比docker-compose-e2e.yaml和docker-compose-e2e-template.yaml即可知)
+
+
+		3.generateChannelArtifacts
+			Generating Orderer Genesis block： 
+				configtxgen -profile TwoOrgsOrdererGenesis -outputBlock ./channel-artifacts/genesis.block
+			Generating channel configuration transaction 'channel.tx'： 
+				configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID mychannel
+			Generating anchor peer update for Org1MSP：
+				configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org1MSPanchors.tx -channelID mychannel -asOrg Org1MSP
+			Generating anchor peer update for Org2MSP:
+				configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts/Org2MSPanchors.tx -channelID mychannel -asOrg Org2MSP
+
+
+	up:
+		1.networkUp
+			如果“crypto-config”目录不存在，则先执行完generate流程
+			CHANNEL_NAME=mychannel TIMEOUT=10000 DELAY=3 LANG=golang docker-compose -f docker-compose-cli.yaml up -d 2>&1 （启动并运行各容器）
+			docker logs -f cli
+
+			peer容器：peer node start
+			orderer容器：orderer
+			cli容器 : /bin/bash -c './scripts/script.sh mychannel 3 golang; sleep 10000'(运行的脚本即：first-network/scripts/script.sh)
+
+
+first-network/scripts/script.sh分析（运行于cli容器）
+	chaincode对应的目录： first-network/../chaincode/  (对应的容器内目录：/opt/gopath/src/github.com/)
+	1.createChannel
+		setGlobals 0 （调用setGlobals函数，配置变量CORE_PEER_LOCALMSPID，CORE_PEER_TLS_ROOTCERT_FILE，CORE_PEER_MSPCONFIGPATH，CORE_PEER_ADDRESS）
+		
+		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx >&log.txt
+		或
+		peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA >&log.txt
+
+	2.joinChannel
+		依次 0,1,2,3
+		setGlobals 0（1,2,3）
+		
+		joinWithRetry 0
+			peer channel join -b $CHANNEL_NAME.block  >&log.txt (因为环境变量不同，所以每次对应的peer不同)
+
+
+	3.updateAnchorPeers 0
+		PEER=0
+		setGlobals $PEER
+
+		peer channel update -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/${CORE_PEER_LOCALMSPID}anchors.tx >&log.txt
+		或
+		peer channel update -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/${CORE_PEER_LOCALMSPID}anchors.tx --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA >&log.txt
+
+	4.updateAnchorPeers 2
+		同3
+
+	5.installChaincode 0
+		PEER=$1
+		setGlobals $PEER
+		peer chaincode install -n mycc -v 1.0 -l ${LANGUAGE} -p ${CC_SRC_PATH} >&log.txt
+
+	6.installChaincode 2
+		同5
+
+	7.instantiateChaincode 2
+		PEER=$1
+		setGlobals $PEER
+
+		peer chaincode instantiate -o orderer.example.com:7050 -C $CHANNEL_NAME -n mycc -l ${LANGUAGE} -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
+		或
+		peer chaincode instantiate -o orderer.example.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n mycc -l ${LANGUAGE} -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
+
+	8.chaincodeQuery 0 100
+		PEER=$1
+		setGlobals $PEER
+		peer chaincode query -C $CHANNEL_NAME -n mycc -c '{"Args":["query","a"]}' >&log.txt
+
+	9.chaincodeInvoke 0
+		PEER=$1
+		setGlobals $PEER
+
+		peer chaincode invoke -o orderer.example.com:7050 -C $CHANNEL_NAME -n mycc -c '{"Args":["invoke","a","b","10"]}' >&log.txt
+		或
+		peer chaincode invoke -o orderer.example.com:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n mycc -c '{"Args":["invoke","a","b","10"]}' >&log.txt
+
+	10.installChaincode 3
+		同5
+
+	11.chaincodeQuery 3 90
+		同8
+
+
+
+
+
+

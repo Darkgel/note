@@ -1,0 +1,6 @@
+开发新需求时的git流程
+1.查看当前在哪个分支
+2.当前的status（删除垃圾，删除上次的本地旧分支和远程旧分支   git branch -d [branch] 		git push origin --delete [branch]）
+3.将master同步到最新
+4.在最新master下新建自己的分支,并将新分支push到远程
+5.在新分支下开发，每完成一个功能提交一次，每天pull&push

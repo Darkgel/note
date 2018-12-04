@@ -1,0 +1,22 @@
+tmp：
+官方文档+ 实践 + 源码研究
+进阶的：  swarm / ipfs 分布式文件存储， Oraclize  智能合约和外部系统交互
+
+
+
+
+1.了解geth，尝试安装使用 （ 以太坊节点， 以太坊浏览器，钱包 ， 挖矿 ）
+2.搭建环境，实践基本流程：创建账号， 交易，编译合约， 部署合约，调用合约
+3.智能合约编写 （solidity, truffle)
+
+
+
+
+！DAG
+
+
+
+
+todo ：
+阅读文档： https://ethereum.gitbooks.io/frontier-guide/
+！搭建开发环境，geth，编译器， truffle等

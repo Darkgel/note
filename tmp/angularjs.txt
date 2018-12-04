@@ -1,0 +1,108 @@
+如果你要开发的是单页应用，AngularJS就是你的上上之选。Gmail、Google Docs、Twitter和Facebook这样的应用，都很能发挥AngularJS的长处。
+但是像游戏开发之类对DOM进行大量操纵、又或者单纯需要极高运行速度的应用，就不是AngularJS的用武之地了。
+
+$scope是一个把view（一个DOM元素）连结到controller上的对象。在我们的MVC结构里，这个 $scope 将成为model，它提供一个绑定到DOM元素（以及其子元素）上的excecution context。
+
+每一个Angular应用都会有一个 $rootScope。这个 $rootScope 是最顶级的scope，它对应着含有 ng-app 指令属性的那个DOM元素。
+
+你可以把app.run函数看作是Angular应用的main方法。
+	app.run(function($rootScope) {
+	  $rootScope.name = "Ari Lerner";
+	});
+
+要明确创建一个$scope 对象，我们就要给DOM元素安上一个controller对象，使用的是ng-controller 指令属性：
+	<div ng-controller="MyController">
+	  {{ person.name }}
+	</div>
+
+	app.controller('MyController', function($scope) {
+	  $scope.person = {
+	    name: "Ari Lerner"
+	  };
+	});
+
+对任何属性和方法，如果AngularJS在当前scope上找不到，就会到父scope上去找，如果在父scope上也没找到，就会继续向上回溯，一直到$rootScope 上。(例外：有些指令属性可以选择性地创建一个独立的scope，让这个scope不继承它的父scope们。)
+
+在controller里操作DOM元素一般都不是个好主意
+
+数据绑定：view <--> $scope <--> controller
+
+
+对按钮、链接或任何其他的DOM元素，我们都可以用另一个指令属性来实现绑定：ng-click 。这个 ng-click 指令将DOM元素的鼠标点击事件（即 mousedown 浏览器事件）绑定到一个方法上，当浏览器在该DOM元素上鼠标触发点击事件时，此被绑定的方法就被调用。
+
+
+所有angular.js的核心服务都用$前缀，angular.js通过$http这个服务来支持ajax
+
+
+"指令属性"就是绑定在DOM元素上的函数，它可以调用方法、定义行为、绑定controller及$scope对象、操作DOM，等等等等。当浏览器启动、开始解析HTML（像平时一样）时，DOM元素上的指令属性就会跟其他属性一样被解析。
+每个指令属性都有自己的优先级
+	ng-model指令属性，被用来将DOM文本输入框的值，跟controller里的$scope model绑定起来。
+	ng-init指令属性是一个在启动时运行的函数（在程序进入运行阶段之前）。它让我们能够在程序运行前设定初始变量的值
+	ng-click指令属性给DOM元素注册了一个点击事件的监听器。当此DOM元素上有点击事件发生（即当此button或link被点击时），Angular.js就会执行表达式的内容，并相应地更新view。
+	ng-show和ng-hide指令，根据赋予它们的表达式的值的真假性(truthy)，来显示和隐藏它们所属的那一部分DOM。
+	ng-repeat指令遍历一个数据集合中的每个数据元素，加载HTML模版把数据渲染出来。被重复使用的模版元素，就是我们绑定了这个指令属性的DOM元素。每一个使用模版渲染的DOM元素都有自己的scope。
+		<li ng-repeat="person in roommates">{{ person.name }}</li>
+		<li ng-repeat="(name, color) in people">{{ name }}'s favorite color is {{ color }}</li>
+
+
+
+
+$watch函数（在使用时）运行在Angular.js的事件循环（即$digest循环）里，让Angular.js能够对DOM进行相应的更新。$watch函数让Angular.js能够实时自动更新view。
+
+
+
+创建自定义指令属性，我们使用app对象的directive方法
+	app.directive('nprLink', function() {
+	   return {
+	     restrict: 'EA',
+	     require: ['^ngModel'],
+	     replace: true,
+	     scope: {
+	       ngModel: '=''
+	       play: '&'
+	     },
+	     templateUrl: '/views/nprListItem.html',
+	     link: function(scope, ele, attr) {
+	       scope.duration = scope.ngModel.audio[0].duration.$text;
+	     }
+	   } 
+	});
+
+
+
+Services可以让我们在整个应用的生命周期中保存数据并且可以让controllers之间共享数据。Services都是单例的
+	创建自己的Service，最常见的创建方法就是用angular.module API 的factory模式
+	创建一个service就是简单的返回一个函数，这个函数返回一个对象。这个对象是在创建应用实例的时候创建的（记住，这个对象是单例对象）
+	angular.module('myApp.services', [])
+	  .factory('githubService', function() {
+	    var serviceInstance = {};
+	    // 我们的第一个服务
+	    return serviceInstance;
+	  });
+
+	第二种创建自定义service的方法
+	app.service('hexafy', function() {
+	    this.myFunc = function (x) {
+	        return x.toString(16);
+	    }
+	});
+
+	注意我们要遵守Angular services依赖注入的规范：自定义的service要写在内建的Angular services之后，自定义的service之间是没有先后顺序的。
+	在应用的生命周期中Service是一直存在的
+	$location 服务，它可以返回当前页面的 URL 地址。
+	$http 是 AngularJS 应用中最常用的服务。 服务向服务器发送请求，应用响应服务器传送过来的数据。
+	$timeout 服务对应了 JS window.setTimeout 函数。
+	$interval 服务对应了 JS window.setInterval 函数。
+	$watch：持续监听数据上的变化，更新界面
+
+
+切记，不要在controller中有任何的操控DOM的行为，如果这么做会污染你的controller并留下潜在的隐患。
+
+
+AngularJS 过滤器可用于转换数据（过滤器可以使用一个管道字符“|”添加到表达式和指令中）：
+	过滤器				描述
+	currency			格式化数字为货币格式。
+	filter				从数组项中选择一个子集。
+	lowercase			格式化字符串为小写。
+	orderBy				根据某个表达式排列数组。
+	uppercase			格式化字符串为大写。

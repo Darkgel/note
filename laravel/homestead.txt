@@ -1,0 +1,3 @@
+当改变了Homestead.yaml中sites属性的值时，需要重新运行： vagrant reload --provision
+
+每次修改了Homestead.yaml后，使用vagrant up重启虚拟机

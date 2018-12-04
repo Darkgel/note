@@ -1,0 +1,66 @@
+XMLHttpRequest 是 AJAX 的基础。
+所有现代浏览器（IE7+、Firefox、Chrome、Safari 以及 Opera）均内建 XMLHttpRequest 对象。
+
+
+创建 XMLHttpRequest 对象
+	variable=new XMLHttpRequest();
+
+	老版本的 Internet Explorer （IE5 和 IE6）使用 ActiveX 对象：
+	variable=new ActiveXObject("Microsoft.XMLHTTP");
+
+	为了应对所有的现代浏览器，包括 IE5 和 IE6，请检查浏览器是否支持 XMLHttpRequest 对象。如果支持，则创建 XMLHttpRequest 对象。如果不支持，则创建 ActiveXObject ：
+	var xmlhttp;
+	if (window.XMLHttpRequest)
+	{// code for IE7+, Firefox, Chrome, Opera, Safari
+	  	xmlhttp=new XMLHttpRequest();
+
+	}else{// code for IE6, IE5
+	  	xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+
+	}
+
+向服务器发送请求
+	使用 XMLHttpRequest 对象的 open() 和 send() 方法：
+	open(method,url,async)
+		method：请求的类型；GET 或 POST
+		url：文件在服务器上的位置
+		async：true（异步）或 false（同步）
+	
+	send(string)
+		string：仅用于 POST 请求
+
+	get：
+	xmlhttp.open("GET","test1.txt",true);//或post方法
+	xmlhttp.send();
+
+	post：如果需要像 HTML 表单那样 POST 数据，请使用 setRequestHeader() 来添加 HTTP 头。然后在 send() 方法中规定您希望发送的数据：
+	xmlhttp.open("POST","ajax_test.asp",true);
+	xmlhttp.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+	xmlhttp.send("fname=Bill&lname=Gates");
+
+
+当使用 async=true 时，请规定在响应处于 onreadystatechange 事件中的就绪状态时执行的函数：
+	if (window.XMLHttpRequest)
+	{// code for IE7+, Firefox, Chrome, Opera, Safari
+	  	xmlhttp=new XMLHttpRequest();
+	}else{// code for IE6, IE5
+	  	xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+	}
+
+	xmlhttp.onreadystatechange=function(){
+	  if(xmlhttp.readyState==4 && xmlhttp.status==200){
+	    document.getElementById("myDiv").innerHTML=xmlhttp.responseText;
+	  }
+	}
+
+	xmlhttp.open("GET","test1.txt",true);
+	xmlhttp.send();
+
+
+服务器响应
+使用 XMLHttpRequest 对象的 responseText 或 responseXML 属性获得来自服务器的响应。
+如果来自服务器的响应并非 XML，请使用 responseText 属性。
+
+
+XMLHttpRequest 对象的三个重要的属性：
+onreadystatechange	存储函数（或函数名），每当 readyState 属性改变时，就会调用该函数。

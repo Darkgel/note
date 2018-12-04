@@ -1,0 +1,64 @@
+通常会把 jQuery 事件处理方法的代码放到 <head>中
+
+
+
+都有回调函数
+text() - 设置或返回所选元素的文本内容（可以理解成递归去掉html标签，只剩脚本）
+html() - 设置或返回所选元素的内容（包括 HTML 标记）（可以理解成只去掉第一层html标签）
+val() - 设置或返回表单字段的值（注意，是表单）
+attr() - 设置或返回属性值
+
+
+添加新的 HTML 内容
+append() - 在被选元素的结尾插入内容
+prepend() - 在被选元素的开头插入内容
+after() - 在被选元素之后插入内容
+before() - 在被选元素之前插入内容
+
+
+删除元素/内容
+remove() - 删除被选元素（及其子元素）
+empty() - 从被选元素中删除子元素
+
+ajax
+load() 方法从服务器加载数据，并把返回的数据放入被选元素中。
+$.get() 方法通过 HTTP GET 请求从服务器上请求数据。
+$.post() 方法通过 HTTP POST 请求从服务器上请求数据。
+
+
+
+
+
+
+以下是jquery使用jsonp的代码：
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+ <html xmlns="http://www.w3.org/1999/xhtml" >
+ <head>
+     <title>Untitled Page</title>
+      <script type="text/javascript" src=jquery.min.js"></script>
+      <script type="text/javascript">
+     jQuery(document).ready(function(){ 
+        $.ajax({
+             type: "get",
+             async: false,
+             url: "http://flightQuery.com/jsonp/flightResult.aspx?code=CA1998",
+             dataType: "jsonp",
+             jsonp: "callback",//传递给请求处理程序或页面的，用以获得jsonp回调函数名的参数名(一般默认为:callback)
+             jsonpCallback:"flightHandler",//自定义的jsonp回调函数名称，默认为jQuery自动生成的随机函数名，也可以写"?"，jQuery会自动为你处理数据
+             success: function(data){//data只是一个变量名而已
+                 alert('您查询到航班信息：票价： ' + data.price + ' 元，余票： ' + data.tickets + ' 张。');
+             },
+             error: function(){
+                 alert('fail');
+             }
+         });
+     });
+     </script>
+     </head>
+  <body>
+  </body>
+ </html>
+
+上面代码的分析：
+为什么没有写flightHandler这个函数？而且竟然也运行成功了！
+原因：jquery在处理jsonp类型的ajax时，自动帮你生成回调函数并把数据取出来供success属性方法来调用（也就是说，success中的就是回调函数）

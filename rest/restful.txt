@@ -1,0 +1,78 @@
+The HTTP API is CRUD (Create, Retrieve, Update, and Delete)
+	GET = “give me some info” (Retrieve)
+	POST = “here’s some update info” (Update)  (Create!!!)
+	PUT = “here’s some new info” (Create) (Update!!!会用发送的数据完全替换原有的资源信息)
+	DELETE = “delete some info” (Delete)
+
+	PATCH = The HTTP method PATCH can be used to update partial resources. For instance, when you only need to update one field of the resource, PUTting a complete resource representation might be cumbersome and utilizes more bandwidth.（更新资源的某部分数据）
+
+	HEAD = The HEAD method is identical to the GET method, except that the server must not return a message body in the response. This method is often used for testing hypertext links for validity, accessibility, and recent modification.
+
+	OPTIONS = This method allows the client to determine the options and/or requirements associated with a resource, or the capabilities of a server, without implying a resource action or initiating a resource retrieval.
+
+
+
+
+
+
+《web api的设计与开发》
+第二章 端点的设计与请求的形式
+	设计
+		1.列出需要提供的功能
+		2.结合端点对api进行整理
+			URI原则：
+				1.短小便于输入的URI
+				2.人可以读懂的URI
+				3.没有大小写混用的URI
+				4.修改方便的URI
+				5.不会暴露服务器端架构的URI
+				6.规则统一的URI
+
+			几个需要注意的地方：
+				1.使用名词的复数形式（数据表名通常也是复数形式的）
+				2.注意所用的单词
+				3.不使用空格几需要编码的字符
+				4.使用连接符“-”来连接多个单词（最好还是尽量避免连接多个单词）
+
+	搜索与查询参数的设计
+		查询参数：在uri的末尾？后面添加一系列参数（包括分页参数）
+			分页常用：
+				limit、offset（自由度较高，方便用户使用，但可能会导致意料之外的访问情形，降低缓存效率）
+				per_page、page
+
+
+			相对位置：page、offset
+			绝对位置：指定“某个id之前”或“某个日期之前”等条件
+
+		建议搜索API和普通API独立开来
+			http://yboss.yahooapis.com/ysearch/web?q=ipod
+			http://yboss.yahooapis.com/ysearch/news?q=obama
+
+	把客户端指定的特定参数放在查询参数里还是路径，主要依据有一下两点：
+		1.是否是表示唯一资源所需的信息
+		2.是否可以省略
+
+
+登录与OAuth2.0
+	端点推荐：https://api.example.com/v1/oauth2/token
+
+	客户端有三种方式将bearer token信息发送到服务器端：
+		1.添加到请求消息的首部
+			GET /v1/users HTTP/1.1
+			Host: api.example.com
+			Authorization: Bearer b77yz******
+
+		2.添加到请求消息体
+			GET /v1/users HTTP/1.1
+			Host: api.example.com
+			Content-Type: application/x-www-form-urlencoded
+
+			access_token=b77yz******
+
+		3.以查询参数的形式添加到URI中
+			GET /v1/users?access_token=b77yz****** HTTP/1.1
+			Host: api.example.com
+
+
+
+第三章 响应数据的设计

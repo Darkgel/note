@@ -1,0 +1,125 @@
+Yii::$app->user
+	1.对应的类  yii\web\User 
+	2.功能： 管理用户身份认证状态
+	3.如何判断isGuest： 当Identity 返回null 的时候为guest
+	4.改变认证状态的方法：
+		login(), logout(), setIdentity()
+	5.该类只负责管理用户的身份认证状态，不处理如何去认证一个用户，具体认证用户的操作在Identity中处理（实现IdentityInterface接口，这个接口定义了多种认证方式）
+	6.具有的属性（property）
+		id，identity，isGuest，returnUrl（登录后的重定向url）
+
+	总结：
+	1.Identity类为User类（即为profile）
+	2.auth表的使用： User类实现了IdentityInterface接口后，会实现不同的登录方式，这些具体的登录method中会使用到不同的auth表
+
+
+判断isGuest的过程
+yii\web\User
+public function getIsGuest()
+{
+    return $this->getIdentity() === null;
+}
+
+public function getIdentity($autoRenew = true)
+{
+    if ($this->_identity === false) {    //$this->_identity默认为false
+        if ($this->enableSession && $autoRenew) {
+            $this->_identity = null;
+            $this->renewAuthStatus();   //在这里面会把找到的Identity（User的具体实例，或null赋值给$_identity）
+        } else {
+            return null;
+        }
+    }
+
+    return $this->_identity;
+}
+
+$this->_identity默认为false，有该用户则为具体的实例，没有该用户则为null
+
+protected function renewAuthStatus()
+{
+    $session = Yii::$app->getSession();
+    $id = $session->getHasSessionId() || $session->getIsActive() ? $session->get($this->idParam) : null;
+
+    if ($id === null) {
+        $identity = null;
+    } else {
+        /* @var $class IdentityInterface */
+        $class = $this->identityClass;
+        $identity = $class::findIdentity($id);
+    }
+
+    $this->setIdentity($identity);
+
+    //为session续时？？
+    if ($identity !== null && ($this->authTimeout !== null || $this->absoluteAuthTimeout !== null)) {
+        $expire = $this->authTimeout !== null ? $session->get($this->authTimeoutParam) : null;
+        $expireAbsolute = $this->absoluteAuthTimeout !== null ? $session->get($this->absoluteAuthTimeoutParam) : null;
+        if ($expire !== null && $expire < time() || $expireAbsolute !== null && $expireAbsolute < time()) {
+            $this->logout(false);
+        } elseif ($this->authTimeout !== null) {
+            $session->set($this->authTimeoutParam, time() + $this->authTimeout);
+        }
+    }
+
+    /如果登录超时，或已经登出了，可以使用cookie自动登录
+    if ($this->enableAutoLogin) {
+        if ($this->getIsGuest()) {
+            $this->loginByCookie();
+        } elseif ($this->autoRenewCookie) {
+            $this->renewIdentityCookie();
+        }
+    }
+}
+上面这个方法的一些分析
+	1.用户的id存储在session中
+	2.User类必须实现findIdentity($id)方法（IdentityInterface）
+	3.如果在session中有找到用户id，则说明已经登录过了，
+
+
+
+
+//下面其实就是把User类的实例赋值给$_identity
+public function setIdentity($identity)
+    {
+        if ($identity instanceof IdentityInterface) {
+            $this->_identity = $identity;
+            $this->_access = [];
+        } elseif ($identity === null) {
+            $this->_identity = null;
+        } else {
+            throw new InvalidValueException('The identity object must implement IdentityInterface.');
+        }
+    }
+
+isGuest流程总结：
+	1.查看session中是否有用户id
+	
+	2.1 session中有用户id
+		从User表中查找记录
+		设置Identity为查到的记录
+		为session续时
+        更新IdentityCookie
+
+	2.2 session中没有用户id
+		设置Identity为null
+		如果可以自动登录的话就自动登录
+
+    3.查看Identity是否为null，为null则判断为guest
+
+
+登录时的真正login方法
+    yii\web\User::login(IdentityInterface $identity, $duration = 0)
+login方法的具体流程：
+    1.beforeLogin
+    2.switchIdentity($identity, $duration)
+        2.1 设置Identity为当前的User实例
+        2.2 将User id 存到session中
+        2.3 更新cookie
+    3.记录日志
+    4.afterLogin
+    5.判断是否登录成功(isGuest)
+
+
+
+Yii2具体的认证过程（如密码的验证）在LoginForm的validate中，而实际上真实的认证地方是user类的validatePassword($this->password)，这个方法需要自己实现

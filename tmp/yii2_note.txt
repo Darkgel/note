@@ -1,0 +1,400 @@
+yii2
+
+使用数据库的三种方法：
+	AR
+	query builder
+	direct SQL queries through DAO
+
+
+考虑多使用data provider,yii\helpers\VarDumper
+
+面包屑：
+	$this->params['breadcrumbs'][] = "title";
+	或 $this->params['breadcrumbs'][] = ['label'=>'cart','url'=>['index']];
+
+yii/di/Container
+	1.通过container配置如何生成一个类：set（）
+	2.配置好后就可以通过container获取需要的类：get（）
+	3.相关的使用：Yii::createObject()
+
+yii/di/ServiceLocator
+	1.一个全局对象，它具有一张list，这张list包含了一些components或者是definitions（每个都是通过id唯一标识的）
+	2.可以通过ServiceLocator取回所需的component（单实例）
+	3.关键词:component，单例
+	4.可以在config.php(yii的配置文件中)定义和配置组件
+	5.获取组件： Yii::$app->cart; 或 Yii::$app->get('cart');    //前面的方式实际上是通过魔术方法调用后面的方法，而后面的方法会使用到__difinitions数组和__components数组（因为继承了yii/di/ServiceLocator）
+	6.ServiceLocator也是通过Yii::createObject()来创建component的
+
+
+events
+	实现:yii\base\component
+	使用
+		$article->on(
+			ActiveRecord::EVENT_AFTER_INSERT,
+			function( $event ){
+				....
+			}
+		);
+	事件：ActiveRecord::EVENT_AFTER_INSERT（注意别人是怎么实现的：通过静态常量，对应的是一个yii\base\Event对象，或者是其他Event对象）
+	触发事件：Component::trigger()
+
+
+继承第三方代码
+	1.composer
+	2.手动配置引入library : 命名空间，别名定义，Yii::$classMap映射，composer更新autoloader
+	3.手动配置引入library： 配置composer.json中的“autoload”字段
+	4.难点：composer的autoloader
+
+
+
+显示flash信息： yii\bootstrap\Alert( 注意，有一个专门的bootstrap命名空间，里面有许多有用的东西 ：yii\bootstrap)
+
+
+在视图（yii\web\View）中获取Controller：$this->context
+
+
+view中的blocks
+	在view中使用：if(!empty($this->blocks['footer'])){echo $this->blocks['footer'];}
+	1.需要在Controller中定义方法actionBlocks
+	2.在actionBlocks render 的 view 中定义不同的block ： $this->beginBlock('footer'); ...  $this->endBlock();
+	3.如何在Controller中调用block ： $this->view->blocks['blockID']
+
+
+decotators
+	通常在layout中使用
+	1.创建decorator文件
+	2.在view使用： yii\widgets\ContentDecorator
+
+
+结合使用grids(lists)，data provider（包括分页）， AR
+	尝试使用yii\data 命名空间下的工具
+
+
+
+chapter 3 AR，Model and Database
+
+使用数据库的3种方法：
+	AR
+	Query builder
+	SQL via DAO
+
+AR方式：
+	$record = Actor::find()
+				->joinWith('films')
+				->orderBy('actor.first_name, actor.last_name, film.title')
+				->all();
+
+Query builder方式： yii\db\Query
+	$rows = (new Query)
+				->from('actor')
+				->innerJoin('film_actor', 'actor.actor_id=film_actor.actor_id')
+				->leftJoin('film', 'film.film_id=film_actor.film_id')
+				->orderBy('actor.first_name, actor.last_name, acotr.actor_id, film.title')
+				->all();
+
+
+SQL via DAO方式：
+	$sql = 'SELECT * FROM actor a JOIN film_actor fa ON fa.actor_id=a.actor_id
+				JOIN film f ON fa.film_id=f.film_id
+				ORDER BY a.first_name, a.last_name, acactor_id, f.title';
+
+	$rows = Yii::$app->db->createCommand($sql)->queryAll();
+
+
+以上三种方法的性能比较
+	memory ： AR < SQL(DAO) < Query Builder  (这个感觉不准确，应该是AR的内存使用量大)
+	time : Quert Builder < SQL(DAO) < AR
+
+以上三种方式的最佳适用情况：
+	AR ： 表单，curd操作（尤其是单一的model时）
+	Query Builder ： 代码运行时大量数据的查询
+	SQL（DAO） ： 复杂的SQL查询 ， 搞性能要求
+
+使用多数据库查询
+	AR : public static function getDb(){...} 或者 Actor::find()->all($db);
+	Query Builder： $query->createCommand($db)->queryAll();
+	SQL(DAO) : Yii::$app->db->createCommand($sql)->queryAll();
+
+
+ActiveRecord 与 ActiveQuery的搭配使用
+
+可以在AR中使用事件： 如beforeSave()等
+可以在AR中自动填充时间戳： 使用 behavior + yii\behaviors\TimestampBehavior
+
+通常behavior中会绑定相应的事件，而behavior会attach到model中（业务逻辑）
+
+
+在Controller中没有找到model时应该抛出异常
+	if( $model === null){
+		throw new NotFoundHttpExcepition('The requested page does not exist!');
+	}
+
+
+使用事务
+	在Controller中使用（或者以业务逻辑的形式写到model中）
+	
+	$transaction = Yii::$app->db->beginTransaxtion();
+	try {
+
+		//业务逻辑
+		$transaction->commit();
+
+	} catch (Exception $e ){
+		$transacntion->rollBack();
+		throw $e;
+	}
+
+
+主从复制与读写分离
+	在component的db中配置
+		'slaveConfig' => [
+			'username' => 'slave',
+			'password' => 'pass',
+		],
+
+		'slaves' => [
+			['dsn' => 'mysql:host=1.1.1.1;dbname=slavedb']
+		],
+
+	按照以上配置后，读操作将在slave上执行，写操作在master上执行
+
+单表继承： 所有子类的所有属性都储存在一张表中
+
+
+
+
+Chapter 4 表单
+	表单验证：
+		$model->validate()
+		自定义验证 ： yii\validators\Validator
+
+	 上传文件：
+	 	yii\web\UploadedFile
+	 	$model = new UploadForm(自己创建的)
+	 	UploadFile::getInstance($model,'file')
+
+	 	$form = ActiveForm::begin([
+	 		'options' => [
+	 			'enctype' => 'multipart/form-data'
+	 		]
+	 	]);
+
+	 	<?= $form->field($model, 'file')->fileInput();?>
+
+	 上传多个文件：
+	 <?= $form->field($model, 'imageFiles[]')->fileInput(
+	 	[
+	 		'multiple' => 'true',
+	 		'accept' => 'image/*'
+	 	]
+	 );?>
+
+	 $model->imageFiles = UploadedFile::getInstances($model, 'imageFiles');
+
+
+
+	验证码：(需要GD PHP 或者是 Imagick扩展)
+		yii\captcha\Captcha
+		Captcha::checkQequirements()
+		<?=$form->field($model, 'verifyCode')->widget(\yii\captcha\Captcha::classname(), [
+			'captchaAction' => 'email/captcha'
+		])?>
+
+		model中
+		 	添加属性 public $verifyCode;
+		 	['verifyCode', 'captcha', 'skipOnEmpty'=>!Captcha::checkRequirements(), 'captchaAction'=>'email/captcha' ]
+
+		controller中
+			public function actions(){
+				return [
+					'captcha' => [
+						'class' => 'yii\captcha\CaptchaAction'
+					],
+				];
+			}
+
+		view中显示verifyCode
+		<?=Captcha::widget([
+			'model'=>$model,
+			'attribute'=>'verifyCode'
+		])?>
+
+		验证码的值存储在session中
+
+
+	自定义Input Widget
+
+
+
+	一表单，多model(同一个类或不同类)
+		(多model同类)
+		Model::loadMultiple()
+		Model::validateMultiple()
+
+		条件性验证
+		model中： ['addres', 'required', 'when'=>..., 'whenClient'=>...]
+
+		(多model，不同类)
+		在ActiveForm中不同的field配置不同的model即可
+
+		返回json数据(yii\helper\Json)
+			1.方式一
+			return Json::encode(...);
+			if(!Yii::$app->request->isAjax){
+   				throw new HttpException(400, 'Only ajax request is allowed');
+			}
+			2.方式二
+			Yii::$app->response->format = Response::FORMAT_JSON;
+			return ActiveForm::validate($model);
+
+		Ajax验证表单
+		1.作用于整个表单
+		$form = ActiveForm::begin([
+			'id' => 'contact-form',
+			'enableAjaxValidation' => true,
+		]);
+
+		自定义客户端验证
+		yii\validators\Validator
+		public function clientValidateAttribute($model, $attribute, $view){
+			....
+		}
+
+
+
+
+Chapter 5 安全
+	对密码的处理
+		检查密码的一致性：
+			Yii::$app->getSecurity()->validatePassword(...);
+		生成密码hash
+			Yii::$app->getSecurity()->generatePasswordHash($password);
+		auth_key的作用：通过cookie来验证用户
+
+	filter
+		内建filter：Core，Custom，Authentication，Content Negotiator， HttpCache， PageCache， RateLimiter， Verb， Cors
+		yii\filters\AccessControl
+
+	XSS
+		\yii\helpers\Html
+			Html::encode();
+			原理：使用htmlspecialchars()
+		
+		\yii\helpers\HtmlPurifier
+			HtmlPurifier::peocess();
+			原理：将一些字符过滤掉
+
+	SQL注入
+		方法一(SQL via DAO)：
+			$sql = '...'
+			$command = Yii::$app->db->createCommand($sql);
+			$command->bindValue(...);
+
+		方法二(AR)：
+			$result = User::findOne([
+				'username' => $username,
+				'password' => $password,
+			]);
+			或者
+			$users = User::find()->where(['username'=>$names])->all();
+			注意：上面的形式中就已经使用了参数绑定（即数组形式）
+
+	CSRF
+		解决方案：在请求中添加一个具有唯一性的token
+		yii中的csrf token是存储在cookie中（客户端）
+		
+		手动在表单中添加csrf token
+			<input type="hidden" name="<?=Yii::$app->request->csrfParam?>" value="<??=Yii::$app->request->getCsrfToken()">
+
+		getCsrfToken()会生成一个唯一的token，并且写到cookie中，随后cookie中的csrf token会和表单中的token比较，看是否一致
+
+		在layout中使用csrf验证
+			Html::csrfMetaTags() //注册csrf相关的meta标签
+
+
+	RBAC
+	命名惯例： [group_][own_]entity_action
+
+	数据加解密
+	\yii\base\Security (需要 openssl PHP扩展)    Yii::$app->security
+
+
+
+Chapter 6 RESTful Web服务
+	yii\rest\ActiveController
+	需要配置urlManager ，request组件
+	在RESTful中，一个Controller主要负责一项资源的操作（对应model）
+	RESTful常见操作：
+		GET /films : list all film by page
+		HEAD /films : show overview info of a film listing
+		POST /films : create a new fiml
+		GET /films/5 : return detail of film 5
+		HEAD /films/5 : show the overview info of film 5
+		PATCH /films/5 and PUT /films/5 : update film 5 
+		DELETE /films/5 : delete film 5
+		OPTIONS /films : show the supported verbs regarding the /films endpoint
+		OPTIONS /films/5 : show the supported verbs regarding the /films/5 endpoint
+
+
+
+Chapter 7 官方扩展
+
+Chapter 8 扩展Yii
+	helpers
+	model behavior
+	component
+	reusable controller actions
+	reusable controllers
+	widget
+	CLI commands
+	filters
+	module
+	view renderer
+	multilanguage application : 使用Yii::t()
+
+
+	一个好的扩展的标准：
+		1. good coding style
+		2. people should be able to find it 
+		3. a consistent , easy to read ,and easy to use API
+		4. good documentation
+		5. extension should apply to the most common use cases
+		6. should be maintained
+		7. well-tested code ,ideally with unit tests
+		8. you need to provide support for it
+
+	具体怎么做：
+		1.满足PSR4的自动加载，PSR1和PSR2的编码风格
+
+
+Chapter 9 性能调优
+	how to do
+	1.更新PHP到最新版本，因为通常在性能上会更优。关闭debug模式，切换到生产环境
+	2.使用cache组件
+	3.使用数据库缓存（schema cache，在db中就可以配置）
+	4.在list 数据时使用array而非AR  （即asArray()）
+	5.在foreach中使用
+		foreach(Post::find()->each() as $post)
+	6.优化composer的autoloader（composer dump-autoload -o）
+
+	加速session处理
+		改变session的存储方式：改用memcache等（注意：当时用此类缓存时要防止数据的丢失）
+		尽量在使用后立即关闭session Yii::$app->session->close();
+
+	缓存依赖
+		各种缓存：片段缓存，页面缓存...,还有http缓存
+
+	性能
+		Yii::beginProfile('...');
+		Yii::endProfile('...');
+
+	http缓存
+		Last-Modified ：time based    对应 If-Modified-Since
+		E-tag ： content based  （E代表Entity）  对应If-None-Match
+
+	assets的合并和最小化
+		使用   “yii asset/temlplate assets.php” (需要 compiler.jar & yuicompressor.jar & JRE)
+		可配置只在生产环境下使用
+
+
+Chapter 10 部署 

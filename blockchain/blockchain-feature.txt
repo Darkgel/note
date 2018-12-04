@@ -1,0 +1,25 @@
+Trustless exchange（无需信任的交易）
+	可以在没有第三方监管或介入的情况下进行交易，降低了交易双方的风险？
+
+	Q：
+		！如何在没有第三方的情况下确保交易的有效性，合法性，可靠性？
+
+Durability（持久性）, reliability（可靠性）, and longevity（长寿）
+	由于区块链网络是去中心化的，区块链不会因为某个节点的故障而导致整体的不可用，而且可以更好的抵抗恶意攻击（分布式的功劳）
+
+Transparency（透明性） and immutability（不可篡改性）
+	公有链上的数据所有人都可以查看
+	所有链上的数据都是不可篡改的，即不可删除，不可修改（概率意义上？）
+
+Process integrity（过程完整性）
+	transaction的特性，可回滚，原子性
+
+
+
+
+Distributed consensus 
+
+
+
+
+immutability

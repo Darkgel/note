@@ -1,0 +1,726 @@
+hyperledger composer 解决方案架构：https://hyperledger.github.io/composer/introduction/solution-architecture
+
+架构包括以下几部分：
+	1.Execution Runtimes:  Hyperledger Fabric;  Web;  Embedded Node.js
+	
+	2.Connection Profiles
+	3.JavaScript SDK : 
+		API主要分成以下两个npm模块
+		1.composer-client ：used to submit transactions to a business network or to perform Create, Read, Update, Delete operations on assets and participants
+		2.composer-admin ：used to manage business networks (deploy, undeploy)
+	4.Command Line Interface ：enables developers and administrators to deploy and managed business network definitions.
+	5.REST Server ：LoopBack Connector； (Swagger) REST API 
+	6.Playground Web User Interface ：a web user interface to define and test business networks
+
+	7.Yeoman Code Generators ：生成用户端
+
+
+
+安装开发环境:
+	Step 1: Install the CLI tools
+		npm install -g composer-cli
+		npm install -g composer-rest-server
+		npm install -g generator-hyperledger-composer
+		npm install -g yo
+
+	Step 2: Install Playground
+		npm install -g composer-playground
+
+	Step 3: Set up your IDE:
+		安装vscode插件：Hyperledger Composer
+
+	Step 4: Install Hyperledger Fabric
+		mkdir ~/fabric-tools && cd ~/fabric-tools
+		curl -O https://raw.githubusercontent.com/hyperledger/composer-tools/master/packages/fabric-dev-servers/fabric-dev-servers.zip
+		unzip fabric-dev-servers.zip
+
+		cd ~/fabric-tools
+		./downloadFabric.sh  （可以选择版本 export HL_FABRIC_VERSION=hlfv11）
+
+
+使用开发环境：
+	初次启动runtime
+		cd ~/fabric-tools
+	    ./startFabric.sh
+	    ./createPeerAdminCard.sh
+
+
+
+	startFabric.sh分析（hlfv11版本）
+		1.确定docker file ： composer/docker-compose-dev.yml 或 /composer/docker-compose.yml
+
+		2.使用docker-compose启动网络
+			ARCH=$ARCH docker-compose -f "${DOCKER_FILE}" down
+			ARCH=$ARCH docker-compose -f "${DOCKER_FILE}" up -d
+
+			使用了4个容器： ca.org1.example.com， orderer.example.com， peer0.org1.example.com， couchdb
+
+		3.创建channel
+			docker exec peer0.org1.example.com peer channel create -o orderer.example.com:7050 -c composerchannel -f /etc/hyperledger/configtx/composer-channel.tx
+
+		4.将peer加入channel
+			docker exec -e "CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/msp/users/Admin@org1.example.com/msp" peer0.org1.example.com peer channel join -b composerchannel.block
+
+
+	createPeerAdminCard.sh(hlfv11版本)	
+		1.检查compser命令的位置和版本（~/.npm-global/bin/composer）
+		2.生成DevServer_connection.json文件（见下方）
+		3.使用composer命令
+			composer card create -p DevServer_connection.json -u PeerAdmin -c "${CERT}" -k "${PRIVATE_KEY}" -r PeerAdmin -r ChannelAdmin --file $CARDOUTPUT
+			其中
+				CERT="${DIR}"/composer/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem
+				PRIVATE_KEY="${DIR}"/composer/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/114aab0e76bf0c78308f89efc4b8c9423e31568da0c340ca187a9b17aa9a4457_sk
+
+				CARDOUTPUT=PeerAdmin@hlfv1.card 或 CARDOUTPUT=/tmp/PeerAdmin@hlfv1.card
+
+		4.当 "${NOIMPORT}" != "true" （默认）
+			composer card list -n PeerAdmin@hlfv1 > /dev/null
+			composer card delete -n PeerAdmin@hlfv1
+
+			composer card import --file /tmp/PeerAdmin@hlfv1.card 
+			composer card list
+
+			rm /tmp/PeerAdmin@hlfv1.card
+
+
+
+	DevServer_connection.json内容：	
+	{
+	    "name": "hlfv1",
+	    "x-type": "hlfv1",
+	    "x-commitTimeout": 300,
+	    "version": "1.0.0",
+	    "client": {
+	        "organization": "Org1",
+	        "connection": {
+	            "timeout": {
+	                "peer": {
+	                    "endorser": "300",
+	                    "eventHub": "300",
+	                    "eventReg": "300"
+	                },
+	                "orderer": "300"
+	            }
+	        }
+	    },
+	    "channels": {
+	        "composerchannel": {
+	            "orderers": [
+	                "orderer.example.com"
+	            ],
+	            "peers": {
+	                "peer0.org1.example.com": {}
+	            }
+	        }
+	    },
+	    "organizations": {
+	        "Org1": {
+	            "mspid": "Org1MSP",
+	            "peers": [
+	                "peer0.org1.example.com"
+	            ],
+	            "certificateAuthorities": [
+	                "ca.org1.example.com"
+	            ]
+	        }
+	    },
+	    "orderers": {
+	        "orderer.example.com": {
+	            "url": "grpc://${HOST}:7050"
+	        }
+	    },
+	    "peers": {
+	        "peer0.org1.example.com": {
+	            "url": "grpc://${HOST}:7051",
+	            "eventUrl": "grpc://${HOST}:7053"
+	        }
+	    },
+	    "certificateAuthorities": {
+	        "ca.org1.example.com": {
+	            "url": "http://${HOST}:7054",
+	            "caName": "ca.org1.example.com"
+	        }
+	    }
+	}
+
+
+	当完成工作后，使用
+		先： stopFabric.sh
+		后： teardownFabric.sh （下次启动时需要重新执行createPeerAdminCard.sh）
+
+
+	启动web app  ("Playground")
+		composer-playground
+
+		然后可以访问 http://localhost:8080/login
+
+
+
+清理脚本
+	docker kill $(docker ps -q)
+    docker rm $(docker ps -aq)
+    docker rmi $(docker images dev-* -q)
+
+
+
+
+
+ composer.sh分析：
+ 	1.新建目录composer-data，将数据解压到该目录下（具体内容参考里面的内容,包含了用createPeerAdminCard.sh生成的东西）， 后续命令都在该目录下执行
+ 	2.清理container
+
+ 	3.执行 “./fabric-dev-servers/downloadFabric.sh”
+ 	4.执行 “./fabric-dev-servers/startFabric.sh”,启动网络，包括ca， peer， order 和 couchdb；生成channel，加入channel
+
+ 	5.下载 composer-playground:0.16.3 镜像
+
+ 	6.启动playground容器：docker-compose -p composer -f docker-compose-playground.yml up -d
+
+ 	7.手动创建card store ：docker exec composer mkdir /home/composer/.composer
+
+ 	8.build the card store locally first（在host中，非容器）
+		rm -fr /tmp/onelinecard
+		mkdir /tmp/onelinecard
+		mkdir /tmp/onelinecard/cards
+		mkdir /tmp/onelinecard/client-data
+		mkdir /tmp/onelinecard/cards/PeerAdmin@hlfv1
+		mkdir /tmp/onelinecard/client-data/PeerAdmin@hlfv1
+		mkdir /tmp/onelinecard/cards/PeerAdmin@hlfv1/credentials
+
+	9.将composer目录下的东西移动到上面的/tmp/onelinecard中
+		cd fabric-dev-servers/fabric-scripts/hlfv1/composer
+		cp creds/* /tmp/onelinecard/client-data/PeerAdmin@hlfv1
+		cp crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/Admin@org1.example.com-cert.pem /tmp/onelinecard/cards/PeerAdmin@hlfv1/credentials/certificate
+		cp crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/114aab0e76bf0c78308f89efc4b8c9423e31568da0c340ca187a9b17aa9a4457_sk /tmp/onelinecard/cards/PeerAdmin@hlfv1/credentials/privateKey
+		echo '{"version":1,"userName":"PeerAdmin","roles":["PeerAdmin", "ChannelAdmin"]}' > /tmp/onelinecard/cards/PeerAdmin@hlfv1/metadata.json
+		echo '{
+		    "type": "hlfv1",
+		    "name": "hlfv1",
+		    "orderers": [
+		       { "url" : "grpc://orderer.example.com:7050" }
+		    ],
+		    "ca": { "url": "http://ca.org1.example.com:7054",
+		            "name": "ca.org1.example.com"
+		    },
+		    "peers": [
+		        {
+		            "requestURL": "grpc://peer0.org1.example.com:7051",
+		            "eventURL": "grpc://peer0.org1.example.com:7053"
+		        }
+		    ],
+		    "channel": "composerchannel",
+		    "mspID": "Org1MSP",
+		    "timeout": 300
+		}' > /tmp/onelinecard/cards/PeerAdmin@hlfv1/connection.json
+
+	10.将本地/tmp/onelinecard中的东西传递到composer容器内
+		cd /tmp/onelinecard
+		tar -cv * | docker exec -i composer tar x -C /home/composer/.composer
+		rm -fr /tmp/onelinecard
+
+	11.可以使用浏览器访问http://localhost:8080了（composer容器在监听）
+
+
+composer-playground命令的功能类似于容器composer
+
+
+
+
+
+A business network is made up of assets, participants, transactions, access control rules, and optionally events and queries. 
+
+使用composer 开发自己的项目(实际上也可以通过playground实现)
+Step One: Creating a business network structure
+	1.yo hyperledger-composer:businessnetwork
+	2.一次填充必要的信息
+	生成的文件（参考E:\code\fabric\composer\fabric-tools\darkgel-network）
+
+Step Two: Defining a business network
+	1.Modelling assets, participants, and transactions（编写E:\code\fabric\composer\fabric-tools\darkgel-network\models下的文件）
+	2.Adding JavaScript transaction logic(编写E:\code\fabric\composer\fabric-tools\darkgel-network\lib下的文件)
+	3.Adding access control(在E:\code\fabric\composer\fabric-tools\darkgel-network下新建permission.acl文件)
+
+Step Three: Generate a business network archive
+	在darkgel-network目录下打包第二步定义的文件
+	composer archive create -t dir -n .
+	执行完命令后会在darkgel-network目录下生成一个bna文件
+
+Step Four: Deploying the business network(需要先启动底层的fabric网络)
+	注意： A PeerAdmin business network card with the correct credentials is already created as part of development environment installation.
+
+	1. install the composer runtime
+	composer runtime install --card PeerAdmin@hlfv1 --businessNetworkName darkgel-network
+
+	2.deploy the business network, from the darkgel-network directory(会在当前目录下生成networkadmin.card)
+	composer network start --card PeerAdmin@hlfv1 --networkAdmin admin --networkAdminEnrollSecret adminpw --archiveFile darkgel-network@0.0.1.bna --file networkadmin.card
+
+	3. import the network administrator identity as a usable business network card
+	composer card import --file networkadmin.card
+
+	4.check that the business network has been deployed successfully
+	composer network ping --card admin@darkgel-network
+
+Step Five: Generating a REST server
+	1.在darkgel-network下，开始REST服务器
+	composer-rest-server
+
+	2.Enter admin@darkgel-network as the card name.
+	3.Select never use namespaces when asked whether to use namespaces in the generated API.
+	4.Select No when asked whether to secure the generated API.
+	5.Select Yes when asked whether to enable event publication.
+	6.Select No when asked whether to enable TLS security.
+
+	启动的服务器可以访问相应的blockchain网络,其暴露的接口为http://localhost:3000/explorer
+
+
+
+
+
+
+查询和使用rest api(基于上面composer建立起来的环境)
+Step One: Updating the business network
+	1.Update the model file,添加两个event和一个transaction
+
+	2.Update transaction logic to use queries and events
+		修改lib/logic.js,添加相应的处理逻辑
+
+Step Two: Create a query definition file
+	1.在darkgel-network目录下编写文件queries.qry
+
+
+Step Three: Regenerate your business network archive
+	1.在darkgel-network目录下：
+	composer archive create --sourceType dir --sourceName . -a darkgel-network@0.0.1.bna
+
+Step Four: Deploy the updated business network definition
+	1.在darkgel-network目录下：
+	composer network update -a darkgel-network@0.0.1.bna -c admin@darkgel-network
+
+	2.测试是否部署成功
+	composer network ping -c admin@tutorial-network
+
+Step Five: Regenerate the REST APIs for the updated Business Network
+	1.在darkgel-network目录下
+		composer-rest-server
+
+	2.填写相应的信息
+
+Step Six: Test the REST APIs and create some data
+	通过http://localhost:3000/explorer访问相应的api 
+
+Step Seven: Perform queries using the commodity trading REST API explorer
+	通过api
+
+
+
+
+
+
+
+
+
+
+
+Deploying a Hyperledger Composer blockchain business network to Hyperledger Fabric for a single organization
+https://hyperledger.github.io/composer/tutorials/deploy-to-fabric-single-org
+Step One: Starting a Hyperledger Fabric network
+	1.Start a clean Hyperledger Fabric
+		cd ~/fabric-tools
+		./stopFabric.sh
+		./teardownFabric.sh
+		./downloadFabric.sh
+		./startFabric.sh  （启动网络：ca.org1.example.com， orderer.example.com， peer0.org1.example.com， couchdb;创建channel，将peer加入channel）
+
+	2.Delete any business network cards that may exist in your wallet. It is safe to ignore any errors that state that the business network cards cannot be found
+		composer card delete -n PeerAdmin@fabric-network
+		composer card delete -n admin@tutorial-network
+
+Step Two: Exploring the Hyperledger Fabric network
+	1.Configuration files
+		使用crytogn和configtxgen生成相应的制品：（下面是相应的配置文件）
+		~/fabric-tools/fabric-scripts/hlfv1/composer/crypto-config.yaml，
+		~/fabric-tools/fabric-scripts/hlfv1/composer/configtx.yaml
+
+	2.Organizations
+		当前只有一个组织： Org1 : org1.example.com， msp id为 Org1MSP， 
+
+	3.Network components
+		- A single peer node for Org1, named peer0.org1.example.com.
+			- The request port is 7051.
+            - The event hub port is 7053.
+
+        - A single Certificate Authority (CA) for Org1, named ca.org1.example.com.
+        	- The CA port is 7054.
+
+        - A single orderer node, named orderer.example.com.
+			- The orderer port is 7050.
+
+		注意：composer是通过localhost以及docker暴露的端口与hyperledger fabric network通信的
+
+	4.Users
+		- Org1 配置有一个用户 Admin@org1.example.com
+			这是一个管理员用户,作为org的管理员用户，其拥有以下权限： 
+				1.把chaincode安装到组织内的peer上
+				2.启动网络（channel？）
+
+		注意： Admin@org1.example.com相关的cert和key在： 
+			~/fabric-tools/fabric-scripts/hlfv1/composer/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+
+		ps： Org1的CA配置有默认用户，其enrollment ID为 admin， 密码为 adminpw  （注意，该用户没有部署网络的权限）
+
+	5.channel
+		最终会创建一个channel: —— “composerchannel”，将peer加入channel，然后将自定义网络部署到channel上
+
+Step Three: Building a connection profile
+	connection profile ： 定义了连接到到fabric网络所需的信息（以下是一个例子）
+		{
+			"name": "fabric-network",  			//给所使用的网络一个名称，后续可以通过该名称引用它，可以自己随便起一个
+		  	"type": "hlfv1", 					//composer是可以应用于各种区块链网络的，hlfv1代表Hyperledger Fabric v1.0
+		  	"mspID": "Org1MSP",					//所代表的MSP，根据所有要连接的org
+		  	"peers": [							//即将连接的peer的信息,这里可以有多个peer的信息,通常应该把该组织所有的peer写入,自定义网络会部署到所有的peer
+		    	{
+		        	"requestURL": "grpc://localhost:7051",
+		        	"eventURL": "grpc://localhost:7053"
+		    	}
+			], 
+			"ca": {                             //org相应的CA
+    			"url": "http://localhost:7054",
+    			"name": "ca.org1.example.com"
+			},
+			"orderers": [                       //orders的相应连接配置，通常应该把所有的orderers信息写入
+			    {
+			        "url" : "grpc://localhost:7050"
+			    }
+			],
+			"channel": "composerchannel",		//已经建立好的channel
+		  	"timeout": 300						//endorsing transaction的timeout
+		}
+
+Step Four: Locating the certificate and private key for the Hyperledger Fabric administrator
+	Org1的admin相关的msp：~/fabric-tools/fabric-scripts/hlfv1/composer/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+
+Step Five: Creating a business network card for the Hyperledger Fabric administrator
+	business network card ：包含了连接到一个blockchain business network 及其底层的区块链网络所需的信息
+
+	创建 business network card（执行后生成一个PeerAdmin@fabric-network.card）
+	composer card create -p connection.json -u PeerAdmin -c Admin@org1.example.com-cert.pem -k 114aab0e76bf0c78308f89efc4b8c9423e31568da0c340ca187a9b17aa9a4457_sk -r PeerAdmin -r ChannelAdmin
+
+	命令解析：
+		1.-p connection.json ：第三步创建的connection.json文件的路径
+		2.-u PeerAdmin  ： 用于指代administrator user（即Admin@org1.example.com），便于在别处引用
+		3.-c Admin@org1.example.com-cert.pem ： Admin@org1.example.com的证书路径
+		4.-k 114aab0e76bf0c78308f89efc4b8c9423e31568da0c340ca187a9b17aa9a4457_sk : Admin@org1.example.com的私钥路径
+		5.-r PeerAdmin -r ChannelAdmin : Admin@org1.example.com用户具有角色PeerAdmin（可以install chaincode）和ChannelAdmin（可以instantiate chaincode）
+
+Step Six: Importing the business network card for the Hyperledger Fabric administrator
+	注意： 
+		1.Hyperledger Composer can only use business network cards that are placed into a wallet
+		2.The wallet is a directory on the file system that contains business network cards.
+
+	将business network card导入wallet
+	composer card import -f PeerAdmin@fabric-network.card
+
+	命令解析： 	
+		-f PeerAdmin@fabric-network.card ：第五步创建的card的路径
+
+	导入后就可以通过PeerAdmin@fabric-network来使用card了
+
+Step Seven: Installing the Hyperledger Composer runtime onto the Hyperledger Fabric peer nodes
+	所谓的Hyperledger Composer runtime即Hyperledger Fabric术语中的chaincode，所以安装runtime就相当于安装chaincode
+	composer runtime install -c PeerAdmin@fabric-network -n tutorial-network
+
+	命令解析；
+		-c PeerAdmin@fabric-network : 即上一步导入的card
+		-n tutorial-network : 把正在部署的blockchain business network命名为 tutorial-network
+
+Step Eight: Starting the blockchain business network
+	这一步实际上就是instantiate chaincode
+	composer network start -c PeerAdmin@fabric-network -a tutorial-network.bna -A admin -S adminpw
+
+	命令解析：
+		-c PeerAdmin@fabric-network ： 相应的card
+		-a tutorial-network.bna ：包含business network definition的包
+		-A admin ：部署的时候，必须创建一个participant作为这个blockchain business network的administrator，通过该用户管理其他用户
+		-S adminpw : -A参数enrollment id相应的密钥
+
+	此处会生成admin@tutorial-network.card，后续可以使用该card与blockchain business network交互
+
+Step Nine: Importing the business network card for the business network administrator
+	导入admin@tutorial-network.card，这样就可以使用admin@tutorial-network来交互了
+	composer card import -f admin@tutorial-network.card
+
+Step Ten: Testing the connection to the blockchain business network
+	composer network ping -c admin@tutorial-network
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+（重点）Deploying a Hyperledger Composer blockchain business network to Hyperledger Fabric (multiple organizations)
+
+
+
+
+生成Business Network Card的两种方式：
+	1.通过certificates ：需要business network 的admin签发的证书和密钥
+	2.通过enrollmentID和 enrollment secret
+	3.手动创建Business Network Card
+		Business Network Card实际上是以下文件的集合：
+		1. A Connection Profile. (.json)
+		2. A metadata file containing the data for the Identity to use to connect to the Business Network. (metadata.json)
+		3. An optional credentials directory containing a certificate and private key.
+
+		注意： 如果没有optional credentials directory的话，metadata文件中必须包含
+		（ If there is no credentials directory, the metadata file must contain the Enrollment Secret property with the property name enrollmentSecret. If an enrollmentSecret is specified, a credentials directory with certificates will be created and populated if the Business Network Card is exported.）
+
+		metadata例子
+		{
+		    "name": "PeerAdmin",
+		    "description": "A valid Business Network Card",
+		    "businessNetwork": "basic-sample-network",
+		    "enrollmentId": "UserID",
+		    "enrollmentSecret": "UserSecret",
+		    "roles": [
+
+		    ]
+		}
+
+		压缩以上三个文件/目录，改后缀为.card ,即可生成 Business Network Card file。
+
+
+Business Network定义(最终生成.bna文件)	
+	1.Model file (.cto) ：包括Asset, Participant，Transaction Definitions
+	2.Script file (.js) ： Transaction Functions
+	3.Access Control (.acl)  ：Access Control rules
+	4.Query file (.qry) ：Query Definitions
+
+
+
+
+Generating a Business Network Definition
+	yo hyperledger-composer
+
+
+Deploying Business Networks
+	composer archive create（先打包）
+	composer runtime install （部署）
+	composer network start (启动)
+	composer network update （更新）
+
+	注意：在peers上也是有区分administrator和member的，只有administrator可以install chaincode
+
+
+
+
+
+当自己编写一个node.js应用时
+	1.使用composer-client npm模块来实现对business network的create，read，update，delete（asset，participant）以及提交transaction
+	2.使用composer-admin npm模块来实现对businessnetwork的deploy及其他管理员操作
+	3.可以订阅事件
+
+当自己编写一个web或mobile应用时
+	1.通过使用composer-rest-server提供的rest api（可以使用yo hyperledger-composer生成对应的angular应用）
+
+
+Enabling multiple user mode for the REST server
+	重要，默认情况下rest server会以启动的时的id去签名所有的transaction
+	multiple user mode前提： REST API authentication 
+	1.当某个client通过授权，会将自己的identity放到client端的wallet中。当client向rest server发起请求时，会带有wallet中的identity
+	2.注意：rest server会存储client的identity，包括private key（因此必须确保rest server是可信的）
+
+	composer-rest-server -c admin@my-network -m true
+	参数 -m 代表 multiple user mode
+
+
+
+
+
+
+
+
+Hyperledger Composer npm Modules
+	composer-client (可用于node.js应用，作为开发依赖)
+		1.用于连接到business network去访问assests， participant，提交transaction
+	
+	composer-admin （可用于node.js应用，作为开发依赖）
+		1.可用于管理员应用
+		2.用于business network definition的创建和部署
+
+	composer-cli
+		1.命令行工具
+		2.用于部署和管理business network definition，故应该安装为全局模块
+
+
+
+Hyperledger Composer Modeling Language
+	一个model文件（.cto）应该包含：
+		1.一个命名空间
+		2.resource 集合， 包括assets，transactions， participants， events
+		3.（可选）从其他命名空间导入resource
+
+	基类：
+		1.String: a UTF8 encoded String.
+		2.Double: a double precision 64 bit numeric value.
+		3.Integer: a 32 bit signed whole number.
+		4.Long: a 64 bit signed whole number.
+		5.DateTime: an ISO-8601 compatible time instance, with optional time zone and UTZ offset.
+		6.Boolean: a Boolean value, either true or false.
+
+
+Hyperledger Composer Access Control Language
+	可分为： Business access control 、network access control 
+
+	权限判定时按照acl文件中的顺序依次判定，若无匹配，默认拒绝（但如果permission.acl文件不存在business network的根目录下，则所有的权限判定都通过）
+
+	network access control：
+		Composer Network：
+			composer network start ：Network access is required to use the CREATE operation for registries and networks.
+			composer network download ：Network access is required to use the READ operation for registries and networks.
+			composer network list： Network access is required to use the READ operation for registries and networks.
+			composer network loglevel ： Network access is required to use the UPDATE operation for networks.
+			composer network ping ： Network access is required to use the READ operation on registries and networks.
+			composer network undeploy ：Network access is required to use the DELETE operation on registries and networks.
+			composer network update ：Network access is required to use the UPDATE or CREATE operation on registries, or the UPDATE operation on networks.
+
+		Composer Identity：
+			composer identity import ：Network access is required to use the UPDATE operation on identity registries or the CREATE operation on identities.
+			composer identity issue ： Network access is required to use the UPDATE operation on identity registries or the CREATE operation on identities.
+			composer identity revoke ：Network access is required to use the UPDATE operation on identity registries or the DELETE operation on identities.
+
+		Composer Participant
+			composer participant add ：Network access is required to use the CREATE operation on participants or the UPDATE operation on participant registries.
+
+		Granting network access control（例子）
+			重要： org.hyperledger.composer.system.Network
+
+
+			//允许org.acme.vehicle.auction.networkControl 这个participant进行所有的network操作
+			rule networkControlPermission {
+				description:  "networkControl can access network commands"
+				participant: "org.acme.vehicle.auction.networkControl"
+				operation: ALL
+				resource: "org.hyperledger.composer.system.Network"
+				action: ALLOW  
+			}
+
+			//允许所有的participant操作所有的系统资源（包括了 network access and business access）
+			rule AllAccess {
+				description: "AllAccess - grant everything to everybody"
+				participant: "org.hyperledger.composer.system.Participant"
+				operation: ALL
+				resource: "org.hyperledger.composer.system.**"
+				action: ALLOW
+			}
+
+
+
+		更多例子：
+			rule SampleConditionalRule {
+			    description: "Description of the ACL rule"
+			    participant(m): "org.example.SampleParticipant"
+			    operation: ALL
+			    resource(v): "org.example.SampleAsset"
+			    condition: (v.owner.getIdentifier() == m.getIdentifier())
+			    action: ALLOW
+			}
+
+			//若org.example.SampleParticipant的实例的participant是asset的owner 且 该participant提交的transaction是org.example.SampleTransaction类型，
+			//则其可以对org.example.SampleAsset的实例进行任何操作
+			rule SampleConditionalRuleWithTransaction {
+			    description: "Description of the ACL rule"
+			    participant(m): "org.example.SampleParticipant"
+			    operation: READ, CREATE, UPDATE
+			    resource(v): "org.example.SampleAsset"
+			    transaction(tx): "org.example.SampleTransaction"
+			    condition: (v.owner.getIdentifier() == m.getIdentifier())
+			    action: ALLOW
+			}
+
+
+		关键字：
+			Resource:
+				Namespace: org.example.*
+				Namespace (recursive): org.example.**
+				Class in namespace: org.example.Car
+				Instance of a class: org.example.Car#ABC123
+
+			Operation： 
+				CREATE, READ, UPDATE, and DELETE，  ALL
+
+			Participant :
+				可用 ANY
+
+			Transaction:
+				Transaction类型
+
+			Condition：
+				Boolean JavaScript expression
+
+			Action： 	
+				 ALLOW, DENY.
+
+
+Hyperledger Composer Query Language
+	The statement property contains the defining rules of the query, and can have the following operators:
+		1.SELECT is a mandatory operator, and by default defines the registry and asset or participant type that is to be returned.
+		2.FROM is an optional operator which defines a different registry to query.
+		3.WHERE is an optional operator which defines the conditions to be applied to the registry data.
+		4.AND is an optional operator which defines additional conditions.
+		5.OR is an optional operator which defines alternative conditions.
+		6.CONTAINS is an optional operator that defines conditions for array values
+		7.ORDER BY is an optional operator which defines the sorting or results.
+		8.SKIP is an optional operator which defines the number of results to skip.
+		9.LIMIT is an optional operator which defines the maximum number of results to return from a query, by default limit is set at 25.
+
+
+Connection Profiles(什么时候用到？用于创建 business network card)
+     {
+        "name": "my-fabric",
+        "type": "hlfv1",
+        "ca": {
+            "url": "https://localhost:7054",
+            "name": "ca.org1.example.com",
+            "trustedRoots" : ["-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----", "-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----"],
+            "verify": true
+        },
+        "orderers": [
+            {
+               "url" : "grpcs://localhost:7050",
+               "cert": "-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----",
+               "hostNameOverride": "ordererHostName"
+            }
+        ],
+        "peers": [
+            {
+                "requestURL": "grpcs://localhost:7051",
+                "eventURL": "grpcs://localhost:7053",
+                "cert": "-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----",
+                "hostNameOverride": "peerHostName"
+            }
+        ],
+        "channel": "composerchannel",
+        "mspID": "Org1MSP",
+        "timeout": 300,
+        "globalCert": "-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----",
+        "maxSendSize": 20,
+        "maxRecvSize": 20
+    }
+
+
+
+Transaction Processor Functions
+	

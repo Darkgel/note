@@ -1,0 +1,14 @@
+yarn ：FAST, RELIABLE, AND SECURE DEPENDENCY MANAGEMENT
+npx ： Executes <command> either from a local node_modules/.bin, or from a central cache, installing any packages needed in order for <command> to run.
+package.json 文件 ： 管理本地安装npm包
+	1.作为一个描述文件，描述了你的项目依赖哪些包
+	2.允许我们使用 “语义化版本规则”（后面介绍）指明你项目依赖包的版本
+	3.让你的构建更好地与其他开发者分享，便于重复使用
+	
+三种模式
+	SSR ： nuxt build， nuxt start
+	SPA ：
+		1.Change mode in nuxt.config.js to spa
+		2.Run npm run build
+		3.Deploy the created dist/ folder to your static hosting like Surge, GitHub Pages or nginx
+	Static Generated ： npm run generate（即nuxt generate）

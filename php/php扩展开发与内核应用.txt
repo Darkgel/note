@@ -1,0 +1,26 @@
+SAPI（Server Application Programming Interface： the API used by PHP to interface with Web Servers）
+	简单来说, SAPI就是PHP和外部环境的代理器。它把外部环境抽象后, 为内部的PHP提供一套固定的, 统一的接口, 使得PHP自身实现能够不受错综复杂的外部环境影响，保持一定的独立性。它提供了一个接口，使得PHP可以和其他应用进行交互数据。
+	常见的sapi：给apache的mod_php5，CGI，给IIS的ISAPI，还有Shell的CLI
+
+PHP启动与终止（以apache为例）
+	1.PHP作为Apache的一个模块启动，这次启动php会初始化一些必要数据，比如与宿主Apache有关的，并且这些数据是常驻内存的！终止与之相对。
+	2.还有一个概念上的启动就是当Apache分配一个页面请求过来的时候，PHP会有一次启动与终止，这也是我们最常讨论的一种。
+ 
+   	1.（minit）PHP随着Apache的启动而诞生在内存里的时候， 它会把自己所有已加载扩展的MINIT方法(全称Module Initialization，是由每个模块自己定义的函数。)都执行一遍。加载扩展必要的资源，这些资源可以被所有请求使用。
+   	2.（rinit）当一个页面请求到来时候，PHP会迅速的开辟一个新的环境，并重新扫描自己的各个扩展， 遍历执行它们各自的RINIT方法(俗称Request Initialization)， 这时候一个扩展可能会初始化在本次请求中会使用到的变量等， 还会初始化等会儿用户端（即PHP脚本）中的变量之类的。
+   	3.现在这个页面请求执行的差不多了，可能是顺利的走到了自己文件的最后， 也可能是出师未捷，半道被用户给die或者exit了， 这时候PHP便会启动回收程序，收拾这个请求留下的烂摊子。 它这次会执行所有已加载扩展的RSHUTDOWN（俗称Request Shutdown）方法， 这时候扩展可以抓紧利用内核中的变量表之类的做一些事情， 因为一旦PHP把所有扩展的RSHUTDOWN方法执行完， 便会释放掉这次请求使用过的所有东西， 包括变量表的所有变量、所有在这次请求中申请的内存等等。
+   	4.当Apache通知PHP自己要Stop的时候，PHP便进入MSHUTDOWN（俗称Module Shutdown）阶段。这时候PHP便会给所有扩展下最后通牒，如果哪个扩展还有未了的心愿，就放在自己MSHUTDOWN方法里，这可是最后的机会了，一旦PHP把扩展的MSHUTDOWN执行完，便会进入自毁程序，这里一定要把自己擅自申请的内存给释放掉，否则就杯具了。
+
+   	总结：Module init、Request init、Request Shutdown、Module shutdown
+
+PHP的生命周期
+	PHP sapi与宿主通信最常见的四种方式如下所列：
+	1.直接以CLI/CGI模式调用
+	2.多进程模块
+	3.多线程模
+	4.Embedded(嵌入式，在自己的C程序中调用Zend Engine)
+
+	CLI/CGI:http://www.walu.cc/phpbook/image/01fig01.jpg
+	多进程模式：http://www.walu.cc/phpbook/image/01fig02.jpg，http://www.walu.cc/phpbook/image/01fig03.jpg
+	多线程模式：http://www.walu.cc/phpbook/image/01fig04.jpg
+	Embedded：在C/C++语言中调用PHP/ZE提供的函数

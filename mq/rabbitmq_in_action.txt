@@ -1,0 +1,42 @@
+A message has two parts: a payload and a label.
+
+Once the TCP connection is open (and you’re authenticated), your app then creates an AMQP channel.一个AMQP连接（TCP连接）中会有很多的channel
+
+three parts to any successful routing of an AMQP message: exchanges, queues, and bindings
+
+当多个consumer连接到一个queue时，message会发送到所有的consumer，但是是以round-robin（循环）的模式，每次发送给某一个consumer（即每个message只会发送给一个特定的consumer）。若message到达的时候，queue没有相应的consumer，则message会在queue中等待
+
+If a consumer receives a message and then disconnects from Rabbit (or unsubscribes from the queue) before acknowledging, RabbitMQ will consider the message undelivered and redeliver it to the next subscribed consumer.
+
+
+Queue
+	exclusive ： This is useful when you need to limit a queue to only one consumer.
+	auto-delete ： The queue is automatically deleted when the last consumer unsubscribes.
+	passive ： With passive set to true, queue.declare will return successfully if the queue exists, and return an error without creating the queue if it doesn’t exist.
+
+
+4 different types of exchanges ： direct, fanout, topic, and headers
+
+durability ： RabbitMQ重启后会重新创建exchange或queue
+persistent : 设置一个message的delivery模式为 2，然后相应的exchange和queue为durable，则服务器重启后消息不会丢失
+
+
+for a message that’s in flight inside Rabbit to survive a crash, the message must ：
+	1.Have its delivery mode option set to 2 (persistent)
+	2.Be published into a durable exchange
+	3.Arrive in a durable queue
+
+
+如何决定是否使用message persistent ： 
+	1.Do you need to process 100,000 messages每秒（如果是，则不使用，除非有另外一种方式来保证可靠性？）
+	2.
+
+
+
+适合使用消息队列的地方：
+	1.Batch processing
+	2.Notifications
+
+使用消息队列实现rpc
+	1.private queue（匿名队列 + exclusive ： temporary, exclusive, anonymous queue）， 将该队列名放到client发出消息的header中（reply_to）
+	2.sending acknowledgement

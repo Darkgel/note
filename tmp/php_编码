@@ -1,0 +1,67 @@
+character encoding  : tells the computer how to interpret raw zeroes and ones into real characters.(It usually does this by pairing numbers with characters)   即真实字母/文字到0,1串的双向映射(是一套映射关系)
+最最常见的character encoding : ASCII, 8-bit encodings, and Unicode-based encodings.
+Unicode-based encodings  ： UTF-8, UTF-16 and UTF-32/UCS-4
+
+各种与编码有关的地方：
+1.浏览器可以选择按某种编码格式来解析html
+2.html文件中可以声明文件本身的编码：<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+3.http响应中的content-type： 会覆盖掉上面的meta tag     Content-Type: text/html; charset=ISO-8859-1   （这个是web服务器设置的，如果需要PHP解析的话，确切地说是有php设置的）
+
+
+改变sever端的encoding
+1.header('Content-Type:text/html; charset=UTF-8');
+2.ini_set('default_charset', 'UTF-8');
+3.If PHP is running as an Apache module (and not as FastCGI), you can even use htaccess to apply this property across many PHP files:
+	php_value default_charset "UTF-8"
+4.php.ini : default_charset = "utf-8"
+5.在apache中，可以使用.htaccess文件设置编码，在.htaccess中添加以下代码（以下这些配置同样的可以在httpd.conf中配置）
+	AddCharset UTF-8 .html   或者   AddDefaultCharset UTF-8   或者   AddDefaultCharset Off(使用这句的话meta tag中的编码定义就是唯一的了，不会有web 服务器的干扰)
+6.在Apache中，还可以通过修改文件后缀达到设置编码的目的
+
+
+注意：
+1.html文件中编码相关的meta tag其本身的编码方式是ASCII，而几乎所有的编码方式都是兼容ASCII的。因此，浏览器可以先以ASCII方式解析出content-type tag，然后再按相应的编码 重新 解析html文件
+2.因此，如果浏览器能直接从http相应中获取content-type，那么就可以直接按照相应的编码来解析html文件了
+
+
+
+UTF-8便于不同的计算机之间使用网络传输不同语言和编码的文字，使得双字节的Unicode能够在现存的处理单字节的系统上正确传输。
+
+unicode的问题:
+unicode是一个巨大的字符和二进制对应关系的集合,却没有规定这个二进制代码应该如何存储。比如，汉字"严"的unicode是十六进制数4E25，转换成二进制数足足有15位（100111000100101），也就是说这个符号的表示至少需要2个字节。而英语用一个字节表示就足够了。如果Unicode统一规定，每个符号用三个或四个字节表示，那么每个英文字母前都必然有二到三个字节是0，这对于存储来说是极大的浪费，文本文件的大小会因此大出二三倍，这是无法接受的。(因此UTF-8出现了)
+
+
+
+UTF-8的编码规则很简单，只有二条：
+1）对于单字节的符号，字节的第一位设为0，后面7位为这个符号的unicode码。因此对于英语字母，UTF-8编码和ASCII码是相同的。
+2）对于n字节的符号（n>1），第一个字节的前n位都设为1，第n+1位设为0，后面字节的前两位一律设为10。剩下的没有提及的二进制位，全部为这个符号的unicode码。
+
+即：如果一个字节的第一位是0，则这个字节单独就是一个字符；如果第一位是1，则连续有多少个1，就表示当前字符占用多少个字节。
+
+总结:ASCII和unicode都是一种编码集合,没有规定用几个字节来存储？而UTF-8 则规定了如何存储数据！
+
+
+1:PHP代码文件本身的编码格式,是GB或者UTF8会影响什么?
+只要与 html 语言声明不冲突，就没有关系
+
+
+2:PHP代码文件中是混杂的,有GB又有UTF8会导致什么样的不好结果么?
+多半会差生“乱码”，而使你无所适从
+
+3:PHP语言中的字符串编码格式是什么?
+字符串会按照 PHP 文件的编码来对字符串进行编码。(PHP 中的 string 的实现方式是一个由字节组成的数组再加上一个整数指明缓冲区长度。并无如何将字节转换成字符的信息，由程序员来决定。字符串由什么值构成没有限制，包括值为 0 ,即null,的字节可以出现在字符串的任何位置。)
+
+只要 PHP 的文件编码是能兼容 ASCII 的，那么字符串操作就可以很好的被处理。但是字符串操作本质上还是 Native 的（不管文件编码是什么），所以在使用的时候需要注意：
+1.某些函数假定字符串是以单字节编码的，但并不需要将字节解释为特定的字符。比如 sbustr() 函数。
+2.很多函数是需要显式地传递编码参数，不然会从 PHP.INI 文件中获取默认值，比如 htmlentities() 函数。
+3.还有一些函数和本地区域有关，这些函数也只能是单字节操作的。
+
+
+多字节字符串
+mbstring 扩展默认不是打开的，安装的时候需要 --enable-mbstring。
+我们首先看看 PHP.INI 中对于 mbstring 指令的配置，花了好久才逐步明白。
+	mbstring.language 这个参数我就理解为 UTF-8 了
+	mbstring.internal_encoding 这个编码和 PHP 文件编码没有关系，只是在大部分 mbstring 函数里面需要指定待处理字符串的编码，假如不显示指定，默认就获取该参数的值，该参数的值在高版本 PHP 中用 default_charset 参数代替了。
+	mbstring.http_input 该参数指定 HTTP input 的默认编码（不包含 GET 参数）。一般和 HTML 页面的编码保持一致，该参数的值用 default_charset 参数代替。
+	mbstring.http_output 该参数误导我了，HTTP output 是什么，PHP 输出不就是页面，怎么会有这概念？
+	mbstring.encoding_translation，这个参数重点说下，默认是关闭的，假如打开，PHP 会对 POST 变量和上传文件的名称自动转换编码为 mbstring.internal_encoding 指定的值，不过我没有试验过，大家可以上传一个中文名的文件。建议关闭，让程序员来处理相关问题。

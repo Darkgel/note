@@ -1,0 +1,5 @@
+Cello能做什么：
+	1.从无到有开始搭建一个BaaS平台
+	2.提供一个自定义的blockchain（eg hyperledger fabric）
+	3.基于不同的方式（裸机，vm，docker。。）维护运行中的区块链网络
+	4.通过dashboard检查系统状态，调整链的数量，资源的多寡

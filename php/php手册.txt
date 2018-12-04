@@ -1,0 +1,83 @@
+Session
+	session id会被存储在cookie中，或者是在url中
+	通过session机制可以使用$_SESSION来保存用于多个请求中的数据
+
+	When a visitor accesses your site, PHP will check automatically (if session.auto_start is set to 1) or on your request (explicitly through session_start()) whether a specific session id has been sent with the request. If this is the case, the prior saved environment is recreated.
+
+
+	$_SESSION (and all registered variables) are serialized internally by PHP using the serialization handler specified by the session.serialize_handler ini setting, after the request finishes.
+
+	注意：Because session data is serialized, resource variables cannot be stored in the session.
+
+	session.save_path ：默认session文件目录
+	session.serialize_handler： 默认为“php”，建议修改为“php_serialize”
+
+	自动完成：When PHP shuts down, it will automatically take the contents of the $_SESSION superglobal, serialize it, and send it for storage using the session save handler.
+
+	使用“file”以外的存储方式来存储session： session_set_save_handler()
+		1.定义自己的session handler：继承SessionHandler 或 实现接口 SessionHandlerInterface
+		2.session的生命周期： open，read，write，close， destroy
+
+
+	周期性地调用session_regenerate_id()提高安全性（15min一次），同时，Session ID must be regenerated when user is authenticated. 
+
+	session相关函数：
+		session_abort — Discard session array changes and finish session
+		session_cache_expire — Return current cache expire
+		session_cache_limiter — Get and/or set the current cache limiter
+		session_commit — Alias of session_write_close
+		session_create_id — Create new session id
+		session_decode — Decodes session data from a session encoded string
+		session_destroy — Destroys all data registered to a session
+		session_encode — Encodes the current session data as a session encoded string
+		session_gc — Perform session data garbage collection
+		session_get_cookie_params — Get the session cookie parameters
+		session_id — Get and/or set the current session id
+		session_is_registered — Find out whether a global variable is registered in a session
+		session_module_name — Get and/or set the current session module
+		session_name — Get and/or set the current session name
+		session_regenerate_id — Update the current session id with a newly generated one
+		session_register_shutdown — Session shutdown function
+		session_register — Register one or more global variables with the current session
+		session_reset — Re-initialize session array with original values
+		session_save_path — Get and/or set the current session save path
+		session_set_cookie_params — Set the session cookie parameters
+		session_set_save_handler — Sets user-level session storage functions
+		session_start — Start new or resume existing session
+		session_status — Returns the current session status
+		session_unregister — Unregister a global variable from the current session
+		session_unset — Free all session variables
+		session_write_close — Write session data and end session
+
+	重点函数：session_set_save_handler
+		使用：
+		1.bool session_set_save_handler ( callable $open , callable $close , callable $read , callable $write , callable $destroy , callable $gc [, callable $create_sid [, callable $validate_sid [, callable $update_timestamp ]]] )
+		2.bool session_set_save_handler ( SessionHandlerInterface $sessionhandler [, bool $register_shutdown = true ] )    （5.4之后）
+
+
+
+Cookie
+	1.cookie默认为session cookie，会话结束后立即失效（被删除）
+	2.通过设置Expires或Max-Age可以使cookie直到某个时间才失效
+		Set-Cookie: id=a3fWa; Expires=Wed, 21 Oct 2015 07:28:00 GMT;
+	3.Secure： 只在https传输是会将cookie传回server
+	  HttpOnly：不允许js操作cookie,只能回传给server 
+		Set-Cookie: id=a3fWa; Expires=Wed, 21 Oct 2015 07:28:00 GMT; Secure; HttpOnly
+	4.Domain和Path ： 定义了在那些url下回传该cookie
+		Domian : 默认为当前文档的域名（不包括子域名）;如果设置了Domain，则子域名也会生效
+		Path ： 就是指定一个生效的路径
+
+	js获取cookie： document.cookie
+
+
+
+Web Storage API
+	sessionStorage ：Window.sessionStorage
+	localStorage ：Window.localStorage
+
+
+
+
+
+
+PDO

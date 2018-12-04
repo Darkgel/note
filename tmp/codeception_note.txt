@@ -1,0 +1,117 @@
+当每次修改了".yml"(acceptance,unit,functional)后，需要重新build
+	codecept build
+
+
+生成tests/acceptance/SigninCept.php
+	codecept generate:cept acceptance Signin
+
+生成tests/acceptance/PageCrudCest.php（面向对象模式）
+	codecept generate:cest acceptance PageCrud
+
+根据测试代码生成相应的文本
+	codecept generate:scenarios <suite>
+
+运行测试
+	codecept run
+	codecept run acceptance
+	codecept run acceptance SigninCept.php
+	codecept run tests/acceptance/SigninCept.php
+	codecept run tests/acceptance/SignInCest.php:^anonymousLogin$  （运行特定的方法）
+	codecept run tests/acceptance/backend  （运行该目录下的测试）
+	codecept run tests/acceptance/backend:^login   （运行该目录下满足正则表达式的测试）
+	codecept help run
+
+输出报告
+	codecept run --steps --xml --html
+
+Generators
+	generate:cept suite filename - Generates a sample Cept scenario
+	generate:cest suite filename - Generates a sample Cest test
+	generate:test suite filename - Generates a sample PHPUnit Test with Codeception hooks
+	generate:feature suite filename - Generates Gherkin feature file
+	generate:suite suite actor - Generates a new suite with the given Actor class name
+	generate:scenarios suite - Generates text files containing scenarios from tests
+	generate:helper filename - Generates a sample Helper File
+	generate:pageobject suite filename - Generates a sample Page object
+	generate:stepobject suite filename - Generates a sample Step object
+	generate:environment env - Generates a sample Environment configuration
+	generate:groupobject group - Generates a sample Group Extension
+
+
+
+
+
+
+
+
+
+
+
+Acceptance Testing
+	点击超链接
+		$I->click('Log in');
+		// CSS selector applied
+		$I->click('#login a');
+		// XPath
+		$I->click('//a[@id=login]');
+		// Using context as second argument
+		$I->click('Login', '.nav');
+
+		// By specifying locator type  （包括id，name，css，xpath，link，class）
+		$I->click(['link' => 'Login']);
+
+		更复杂的
+		$I->click('Edit' , \Codeception\Util\Locator::elementAt('//table/tr', -1));
+
+
+	提交表单
+		// we are using label to match user_name field
+		$I->fillField('Name', 'Miles');
+		// we can use input name or id
+		$I->fillField('user[email]','miles@davis.com');
+		$I->selectOption('Gender','Male');
+		$I->click('Update');
+
+		注意：By default, submitForm doesn’t send values for buttons
+		$I->submitForm('#update_form', array('user' => array(
+		     'name' => 'Miles',
+		     'email' => 'Davis',
+		     'gender' => 'm'
+		)));
+
+		$I->submitForm('#update_form', array('user' => array(
+		     'name' => 'Miles',
+		     'email' => 'Davis',
+		     'gender' => 'm'
+		)), 'submitButton');
+		// this would have the same effect, but the value has to be explicitly specified
+		$I->submitForm('#update_form', array('user' => array(
+		     'name' => 'Miles',
+		     'email' => 'Davis',
+		     'gender' => 'm',
+		     'submitButton' => 'Update'
+		)));
+
+	Assertions
+		// We check that 'Thank you, Miles' is on the page.
+		$I->see('Thank you, Miles');
+		// We check that 'Thank you, Miles' is inside an element with 'notice' class.
+		$I->see('Thank you, Miles', '.notice');
+		// Or using XPath locators
+		$I->see('Thank you, Miles', "//table/tr[2]");
+		// We check this message is *not* on the page.
+		$I->dontSee('Form is filled incorrectly');
+
+		$I->seeElement('.notice');
+		$I->dontSeeElement('.error');
+
+		$I->seeInCurrentUrl('/user/miles');
+		$I->seeCheckboxIsChecked('#agree');
+		$I->seeInField('user[name]', 'Miles');
+		$I->seeLink('Login');
+
+
+
+
+Functional Tests
+	Functional tests don’t require a web server（与Acceptance test 的区别）

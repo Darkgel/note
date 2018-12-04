@@ -1,0 +1,443 @@
+与CA server交互的两种方法：
+	1.通过Fabric CA client
+	2.通过Fabric SDKs
+
+	所有的交互过程都是通过REST API
+
+
+
+hyperledger/fabric-ca docker镜像中主要包含了两个命令行工具：
+	1.fabric-ca-server
+	2.fabric-ca-client
+
+	在使用该容器时，可以有一下三种方法来设置Fabric CA server和client：（优先级从1到3降低）
+	1.CLI flags
+	2.Environment variables
+	3.Configuration file
+
+
+server的配置文件在：/etc/hyperledger/fabric-ca-server/fabric-ca-server-config.yml
+
+
+
+server端
+	The Fabric CA server’s home directory is determined as follows:
+	1.if the –home command line option is set, use its value
+	2.if the FABRIC_CA_SERVER_HOME environment variable is set, use its value
+	3.if FABRIC_CA_HOME environment variable is set, use its value
+	4.if the CA_CFG_PATH environment variable is set, use its value
+	5.use current working directory
+
+	export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/admin
+
+	1.Initializing the server
+		fabric-ca-server init -b admin:adminpw
+		admin:adminpw 这个用户作为server的管理员
+		
+		该命令的执行会生成一个自签名的CA证书（或者会接收一个由父级CA生成的证书）,以及自己的私钥
+		以及在server的home目录下生成配置文件 fabric-ca-server-config.yaml
+		（generates a self-signed CA certificate unless the -u <parent-fabric-ca-server-URL> option is specified
+		If the -u is specified, the server’s CA certificate is signed by the parent Fabric CA server.）
+
+	2.starting the server
+		fabric-ca-server start -b <admin>:<adminpw>
+
+		若server在此之前没有初始化过，则会先初始化
+
+		若server没有配置成使用LDAP，则必须至少配置一个 pre-registered bootstrap identity 来 register and enroll other identities
+
+	3.Configuring the database
+		可以配置连接SQLite，MySQL， PostgreSQL，以及可以配置成集群的模式（集群模式仅支持MySQL和PostgreSQL）
+
+	4.Enrolling an intermediate CA
+		若是创建一个intermediate CA则其自身的签名证书需要父CA签发
+		fabric-ca-server start -b admin:adminpw -u http://<enrollmentID>:<secret>@<parentserver>:<parentport>
+
+
+
+client端
+	与server端类似，The Fabric CA client’s home directory is determined as follows:（优先级一次降低）
+	1.if the –home command line option is set, use its value
+	2. if the FABRIC_CA_CLIENT_HOME environment variable is set, use its value
+	3. if the FABRIC_CA_HOME environment variable is set, use its value
+	4. if the CA_CFG_PATH environment variable is set, use its value
+	5. use $HOME/.fabric-ca-client
+
+	1.Enrolling the bootstrap identity（先配置好CSR）
+		export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/admin
+		fabric-ca-client enroll -u http://admin:adminpw@localhost:7054
+
+		作用：从CA服务器获取enrollment certificate (ECert)和CA证书链PEM文件，并自己生成相应的私钥，存储到Fabric CA client的msp目录下，同时server的database也会存储ECert
+		登记后就可以使用admin的身份进行后续的请求
+
+		执行后会在FABRIC_CA_CLIENT_HOME下生成fabric-ca-client-config.yaml，以及一个msp目录
+
+		msp目录
+			cacerts ：包含localhost-7054.pem（CA的证书）
+			keystore： 7e7ce3d241ad729064687c3bc926bea175aca1184e016e8b21c79507b8a1374a_sk（client的私钥,自己生成）
+			signcerts: cert.pem(client的ECert)
+			tlscacerts: tls-localhost-7054.pem
+
+	2.Registering a new identity
+		需要已经enrolled的admin来register
+
+		export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/admin
+		fabric-ca-client register --id.name admin2 --id.affiliation org1.department1 --id.attrs 'hf.Revoker=true,admin=true:ecert'
+		执行后会获得password（enrollment secret）,可以把这个password和id发给他人，使他人可以enroll该身份（也可以自定义password ：id.secret）
+
+		export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/admin
+		fabric-ca-client register --id.name peer1 --id.type peer --id.affiliation org1.department1 --id.secret peer1pw
+
+	3.Enrolling a peer identity
+		export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/peer1
+		fabric-ca-client enroll -u http://peer1:peer1pw@localhost:7054 -M $FABRIC_CA_CLIENT_HOME/msp
+
+		对于enroll orderer来说，也是一样的
+
+
+	4.Getting a CA certificate chain from another Fabric CA server
+		开启一个新的CA
+		export FABRIC_CA_SERVER_HOME=$HOME/ca2
+		fabric-ca-server start -b admin:ca2pw -p 7055 -n CA2
+
+		install CA2’s certificate chain into peer1’s MSP directory
+		export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/peer1
+		fabric-ca-client getcacert -u http://localhost:7055 -M $FABRIC_CA_CLIENT_HOME/msp
+
+	5.Reenrolling an Identity
+		当ECert过期或被盗用时
+		export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/peer1
+		fabric-ca-client reenroll
+
+	6.Revoking a certificate or identity
+		In order to revoke a certificate or an identity, the calling identity must have the hf.Revoker and hf.Registrar.Roles attribute.
+		fabric-ca-client revoke -e <enrollment_id> -r <reason>
+
+		The following are the supported reasons that can be specified using -r flag:
+			1.unspecified
+			2.keycompromise
+			3.cacompromise
+			4.affiliationchange
+			5.superseded
+			6.cessationofoperation
+			7.certificatehold
+			8.removefromcrl
+			9.privilegewithdrawn
+			10.aacompromise
+
+		fabric-ca-client revoke -e peer1 --gencrl (会生成CRL)
+
+	7.Generating a CRL (Certificate Revocation List)
+		export FABRIC_CA_CLIENT_HOME=~/clientconfig
+		fabric-ca-client gencrl -M ~/msp
+
+		export FABRIC_CA_CLIENT_HOME=~/clientconfig
+		fabric-ca-client gencrl --caname "" --revokedafter 2017-09-13T16:39:57-08:00 --revokedbefore 2017-09-21T16:39:57-08:00 -M ~/msp
+
+	8.Dynamic Server Configuration Update（貌似preview-1.1.0暂时不支持）
+		Dynamically updating identities
+			1.Getting Identity Information
+				fabric-ca-client identity list --id user1
+				fabric-ca-client identity list
+			2.Adding an identity
+				fabric-ca-client identity add user1 --json '{"secret": "user1pw", "type": "user", "affiliation": "org1", "max_enrollments": 1, "attrs": [{"name": "hf.Revoker", "value": "true"}]}'
+
+				或
+
+				fabric-ca-client identity add user1 --secret user1pw --type user --affiliation . --maxenrollments 1 --attrs hf.Revoker=true
+
+			3.Modifying an identity
+				fabric-ca-client identity modify user1 --json '{"secret": "newPassword", "affiliation": ".", "attrs": [{"name": "hf.Regisrar.Roles", "value": "peer,client"},{"name": "hf.Revoker", "value": "true"}]}'
+
+				或
+				fabric-ca-client identity modify user1 --secret newsecret
+
+		Dynamically updating affiliations
+			1.Adding an affiliation
+				fabric-ca-client affiliation add org1.dept1
+
+			2.Modifying an affiliation
+				fabric-ca-client affiliation modify org2 --name org3
+
+			3.Removing an affiliation
+				fabric-ca-client affiliation remove org2
+
+			4.Listing affiliation information
+				fabric-ca-client affiliation list --affiliation org2.dept1
+				fabric-ca-client affiliation list
+
+			5.Contact specific CA instance
+				当一个server上存在多个CA时，指定某个CA
+				fabric-ca-client enroll -u http://admin:adminpw@localhost:7054 --caname <caname>
+
+
+
+
+样例分析：https://github.com/hyperledger/fabric-samples/tree/master/fabric-ca
+	重点：
+		1.学会通过ca client和ca server生成加密材料，而不是通过cryptogen
+		2.学会使用Attribute-Based Access Control (ABAC)
+
+	启动容器的顺序:
+		1.根CA rca ：每个根CA属于一个组织。启动容器后根CA的自签名证书会写到 data 目录中，当中间CA需要通过TLS与根CA通信时就会用到
+
+		2.中间CA ica ： 每个中间CA属于一个组织。每个中间CA都有相应的根CA。每个中间CA的证书同样的会写到目录 data 中
+
+		3.setup容器（fabric-ca-tools） ： 通过中间CA，注册各种identities， 生成创世块，以及其他建立 blockchain 网络需要的制品。
+
+		4.启动orderer和peer
+
+		5.启动run容器（fabric-ca-tools） ：执行各种测试用例，包括 创建channel， 将peers加入channel， install & instantiate chaincode， 调用chaincode
+
+	详细的分析参考目录“E:\note\blockchain\sample-ca”
+
+
+
+
+从SatisfiesPrincipal这个接口实现，可以引出身份的类型之分。类型之分的原始定义在/fabric/protos/common中的msp_principal.proto和对应生成msp_principal.pb.go。
+结构体为MSPPrincipal，有以下三种类型的身份：(peer, order, client, user都有相应的msp)
+	1.ROLE，表示一个角色，有成员MEMBER和管理者ADMIN之分。类似于一个公司中，普通职员和经理。
+	2.ORGANIZATION_UNIT，表示组织单位。类似于一个公司中的，一个部门。
+	3.IDENTITY，就表示一个普通的身份。是与ORGANIZATION_UNIT相对的，类似于一个公司中，一个个体。
+
+
+每个节点（peer或orderer）的MSP配置
+	包括了两部分：  1.path to the mspconfig folder   2. MSP Identifier of the node’s MSP
+	
+	peer相关的环境变量：CORE_PEER_MSPCONFIGPATH， CORE_PEER_LOCALMSPID
+	orderer相关的环境变量：ORDERER_GENERAL_LOCALMSPDIR，ORDERER_GENERAL_LOCALMSPID
+
+	注意：对于orderer的设置，我们需要生成并为orderer提供系统channel的创世区块。
+
+	对“本地”的MSP进行重新配置只能手动进行，且该过程需要重启peer节点和orderer节点。在随后的版本中我们计划提供在线/动态的重新配置的功能（通过使用一个由节点管理的系统chaincode，使得我们不必停止node）。
+
+
+Channel MSP 的设置
+	在系统起始阶段，我们需要指定在网络中出现的所有MSP的验证参数，且这些参数需要在系统channel的创世区块中指定。
+
+	MSP的验证参数（verification parameters）包括: MSP标识符、信任源证书、中间CA和管理员的证书，以及OU说明和CLR。
+
+
+	存在一个“ administrator certificates of the MSP”，其拥有权限修改MSP配置（通过config_update对象）
+
+
+
+
+
+msp目录中各个子目录即文件的用途
+
+orderer(根节点为org)
+
+└── example.com（代表一个组织）
+    ├── ca
+    │   ├── 5c737af395c6a6c884b8a0353c9b66c0801f0aa3eceeb113e7595cb840236305_sk （ca自签名证书对应的私钥）
+    │   └── ca.example.com-cert.pem  (由根CA签发的，发给根CA的自签名证书)
+    ├── msp
+    │   ├── admincerts
+    │   │   └── Admin@example.com-cert.pem (由根CA签发的，发给组织管理员的证书)
+    │   ├── cacerts
+    │   │   └── ca.example.com-cert.pem （由根CA签发的，发给根CA的自签名证书）
+    │   └── tlscacerts
+    │       └── tlsca.example.com-cert.pem (由tls的根CA签发的，发给tls根CA的自签名证书)
+    ├── orderers
+    │   └── orderer.example.com
+    │       ├── msp
+    │       │   ├── admincerts
+    │       │   │   └── Admin@example.com-cert.pem (由根CA签发的，发给组织管理员的证书)
+    │       │   ├── cacerts
+    │       │   │   └── ca.example.com-cert.pem (由根CA签发的，发给根CA的自签名证书)
+    │       │   ├── keystore
+    │       │   │   └── 59ec5b94accec59b8737e1c11bf2ce1e476a800ba8dc0385947d211d6deae0a1_sk (对应该orderer节点证书的私钥)
+    │       │   ├── signcerts
+    │       │   │   └── orderer.example.com-cert.pem (由根CA签发的，发给该orderer节点的证书)
+    │       │   └── tlscacerts
+    │       │       └── tlsca.example.com-cert.pem (由tls的根CA签发的，发给tls根CA的自签名证书)
+    │       └── tls
+    │           ├── ca.crt (由tls的根CA签发的，发给tls根CA的自签名证书)
+    │           ├── server.crt (由tls的根CA签发的, 发给该order节点做tls用的证书)
+    │           └── server.key (该order节点tls私钥)
+    ├── tlsca
+    │   ├── 8dc4626809ddd9dc2f676424d8d3f301c39584b167e3ec625c996d58c29ea960_sk （tlsca自签名证书对应的私钥）
+    │   └── tlsca.example.com-cert.pem （由tls的根CA签发的，发给tls根CA的自签名证书）
+    └── users
+        └── Admin@example.com
+            ├── msp
+            │   ├── admincerts
+            │   │   └── Admin@example.com-cert.pem (由根CA签发的，发给组织管理员的证书)
+            │   ├── cacerts
+            │   │   └── ca.example.com-cert.pem (由根CA签发的，发给根CA的自签名证书)
+            │   ├── keystore
+            │   │   └── aaa18614185c3523e1d81f4472391874c5fc3f4a5283febb941c9d16942c03a5_sk （对应该admin的私钥）
+            │   ├── signcerts
+            │   │   └── Admin@example.com-cert.pem (由根CA签发的，发给组织管理员的证书)
+            │   └── tlscacerts
+            │       └── tlsca.example.com-cert.pem (由tls的根CA签发的，发给tls根CA的自签名证书)
+            └── tls
+                ├── ca.crt (由tls的根CA签发的，发给tls根CA的自签名证书)
+                ├── server.crt (由tls的根CA签发的, 发给该组织管理员做tls用的证书)
+                └── server.key (该组织管理员tls私钥)
+
+	
+	
+peer节点
+peerOrganizations/
+├── org1.example.com
+│   ├── ca
+│   │   ├── ca.org1.example.com-cert.pem
+│   │   └── e6f1e45beaf825edb5409dd34d91e75b750a2d92c4e27d620ae36793afca7800_sk
+│   ├── msp
+│   │   ├── admincerts
+│   │   │   └── Admin@org1.example.com-cert.pem
+│   │   ├── cacerts
+│   │   │   └── ca.org1.example.com-cert.pem
+│   │   └── tlscacerts
+│   │       └── tlsca.org1.example.com-cert.pem
+│   ├── peers
+│   │   ├── peer0.org1.example.com
+│   │   │   ├── msp
+│   │   │   │   ├── admincerts
+│   │   │   │   │   └── Admin@org1.example.com-cert.pem
+│   │   │   │   ├── cacerts
+│   │   │   │   │   └── ca.org1.example.com-cert.pem
+│   │   │   │   ├── keystore
+│   │   │   │   │   └── 7ddeb85e75c4761724b29cd2488d00591b472cd750ad8a6e262ba28b09946b74_sk
+│   │   │   │   ├── signcerts
+│   │   │   │   │   └── peer0.org1.example.com-cert.pem
+│   │   │   │   └── tlscacerts
+│   │   │   │       └── tlsca.org1.example.com-cert.pem
+│   │   │   └── tls
+│   │   │       ├── ca.crt
+│   │   │       ├── server.crt
+│   │   │       └── server.key
+│   │   └── peer1.org1.example.com
+│   │       ├── msp
+│   │       │   ├── admincerts
+│   │       │   │   └── Admin@org1.example.com-cert.pem
+│   │       │   ├── cacerts
+│   │       │   │   └── ca.org1.example.com-cert.pem
+│   │       │   ├── keystore
+│   │       │   │   └── 19e74921641bc108cee1f26f2dd499338416ebf566edad43b7a96fe9dcf40583_sk
+│   │       │   ├── signcerts
+│   │       │   │   └── peer1.org1.example.com-cert.pem
+│   │       │   └── tlscacerts
+│   │       │       └── tlsca.org1.example.com-cert.pem
+│   │       └── tls
+│   │           ├── ca.crt
+│   │           ├── server.crt
+│   │           └── server.key
+│   ├── tlsca
+│   │   ├── 466897bf4b9880fb6fbbf42b5ab608c063bed4df01ac0ad63f5351cdf4f8d333_sk
+│   │   └── tlsca.org1.example.com-cert.pem
+│   └── users
+│       ├── Admin@org1.example.com
+│       │   ├── msp
+│       │   │   ├── admincerts
+│       │   │   │   └── Admin@org1.example.com-cert.pem
+│       │   │   ├── cacerts
+│       │   │   │   └── ca.org1.example.com-cert.pem
+│       │   │   ├── keystore
+│       │   │   │   └── 34ae8addcc6e00dcac021bcce242cba995934fda8b17eac367a7174e3da73718_sk
+│       │   │   ├── signcerts
+│       │   │   │   └── Admin@org1.example.com-cert.pem
+│       │   │   └── tlscacerts
+│       │   │       └── tlsca.org1.example.com-cert.pem
+│       │   └── tls
+│       │       ├── ca.crt
+│       │       ├── server.crt
+│       │       └── server.key
+│       └── User1@org1.example.com
+│           ├── msp
+│           │   ├── admincerts
+│           │   │   └── User1@org1.example.com-cert.pem
+│           │   ├── cacerts
+│           │   │   └── ca.org1.example.com-cert.pem
+│           │   ├── keystore
+│           │   │   └── 1e63fe7827f63afdd959bc292ad7534cb16e5f0edd1517fe5bfc0efa021090d4_sk
+│           │   ├── signcerts
+│           │   │   └── User1@org1.example.com-cert.pem
+│           │   └── tlscacerts
+│           │       └── tlsca.org1.example.com-cert.pem
+│           └── tls
+│               ├── ca.crt
+│               ├── server.crt
+│               └── server.key
+└── org2.example.com
+    ├── ca
+    │   ├── be5a3d943521b525216fb9a806380b4eff6b7d7fc482012fd8111b5863082b3a_sk
+    │   └── ca.org2.example.com-cert.pem
+    ├── msp
+    │   ├── admincerts
+    │   │   └── Admin@org2.example.com-cert.pem
+    │   ├── cacerts
+    │   │   └── ca.org2.example.com-cert.pem
+    │   └── tlscacerts
+    │       └── tlsca.org2.example.com-cert.pem
+    ├── peers
+    │   ├── peer0.org2.example.com
+    │   │   ├── msp
+    │   │   │   ├── admincerts
+    │   │   │   │   └── Admin@org2.example.com-cert.pem
+    │   │   │   ├── cacerts
+    │   │   │   │   └── ca.org2.example.com-cert.pem
+    │   │   │   ├── keystore
+    │   │   │   │   └── 1dd5c31ffd592a3f98dccdd039bd6b1c8d1fdc88277f04ebe49998f3dc8a6e2a_sk
+    │   │   │   ├── signcerts
+    │   │   │   │   └── peer0.org2.example.com-cert.pem
+    │   │   │   └── tlscacerts
+    │   │   │       └── tlsca.org2.example.com-cert.pem
+    │   │   └── tls
+    │   │       ├── ca.crt
+    │   │       ├── server.crt
+    │   │       └── server.key
+    │   └── peer1.org2.example.com
+    │       ├── msp
+    │       │   ├── admincerts
+    │       │   │   └── Admin@org2.example.com-cert.pem
+    │       │   ├── cacerts
+    │       │   │   └── ca.org2.example.com-cert.pem
+    │       │   ├── keystore
+    │       │   │   └── e9b88a7e2fa3bc4e90d753366c79c69101356e338475d6a7dde5bda43532d3f8_sk
+    │       │   ├── signcerts
+    │       │   │   └── peer1.org2.example.com-cert.pem
+    │       │   └── tlscacerts
+    │       │       └── tlsca.org2.example.com-cert.pem
+    │       └── tls
+    │           ├── ca.crt
+    │           ├── server.crt
+    │           └── server.key
+    ├── tlsca
+    │   ├── b391eb1fc3f7f4941668ed71ae6ecf21e2bdd38be5bf13b15b0bf6990b591ca1_sk
+    │   └── tlsca.org2.example.com-cert.pem
+    └── users
+        ├── Admin@org2.example.com
+        │   ├── msp
+        │   │   ├── admincerts
+        │   │   │   └── Admin@org2.example.com-cert.pem
+        │   │   ├── cacerts
+        │   │   │   └── ca.org2.example.com-cert.pem
+        │   │   ├── keystore
+        │   │   │   └── 4d771ed49fa7cbfc79025dc156876db66acecafc3c7e34631505e98a6c1ecd88_sk
+        │   │   ├── signcerts
+        │   │   │   └── Admin@org2.example.com-cert.pem
+        │   │   └── tlscacerts
+        │   │       └── tlsca.org2.example.com-cert.pem
+        │   └── tls
+        │       ├── ca.crt
+        │       ├── server.crt
+        │       └── server.key
+        └── User1@org2.example.com
+            ├── msp
+            │   ├── admincerts
+            │   │   └── User1@org2.example.com-cert.pem
+            │   ├── cacerts
+            │   │   └── ca.org2.example.com-cert.pem
+            │   ├── keystore
+            │   │   └── ab3a7586c0276dc1875be4dd613a82f4c369b82a77419d2b5518084c2db83383_sk
+            │   ├── signcerts
+            │   │   └── User1@org2.example.com-cert.pem
+            │   └── tlscacerts
+            │       └── tlsca.org2.example.com-cert.pem
+            └── tls
+                ├── ca.crt
+                ├── server.crt
+                └── server.key

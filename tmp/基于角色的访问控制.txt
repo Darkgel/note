@@ -1,0 +1,269 @@
+基于角色的访问控制
+
+权限授予和身份鉴别是访问控制的基础
+	正确的权限授予事实上依赖于身份验证
+	身份鉴别是确定“你是谁“的过程， 
+	权限授予则是确定”你能干什么“的过程（即权限授予机制对用户是否可以访问系统资源做出”是“或”否“的决定）
+
+users，subjets，objects，operations，and permissions
+	用户，主体，客体，操作和权限（以及它们之间的关系）
+	用户： 和计算机系统交互的人（在许多设计方案中，单个用户可能拥有多个登录标识（ID），这些标识可能同时处于活跃状态，但身份验证机制可以使多个标识匹配到某个具体的人，即用户对于计算机系统来说具有唯一性）
+	会话（session） : 用户和系统交互的实例
+	主体： 一个代表用户行为的计算机进程（可以看成是用户的agent）
+	客体： 计算机系统中任意可访问的资源
+	操作： 由客体触发的活动进程
+	权限（permission 或 privilege）： 系统中授权可以执行的动作，即客体和操作的组合
+	角色： 不同权限或角色(职责）的集合
+
+访问矩阵
+
+使用角色的原因：
+	用户和权限的关系变更频繁，而角色和权限的关系则相对稳定。
+
+1992年佛莱欧罗和库恩论文：
+	模型包含的三个基本准则：
+		1.角色指派：只有当主体被选定或指派角色时，该主体才能运行某项事务。（即每个活动用户有需要有某个活动的角色）
+		2.角色授权： 主体的活动角色必须授权给该主体。该准则与准则1确保用户只能获得被授权使用的角色(即主体的角色是经过合法授权的)
+		3.事务授权： 只有当事务获得了主体活动角色的授权时，主体才能运行该事务。该准则与准则1，2一起保证用户只能运行被授权的事务。
+
+	在一个会话中，主体可能拥有读个活动角色
+	通常在ACL中，“组”代表的是用户的集合（可以与RBAC中角色的继承相比较）
+
+
+RBAC0，RBAC1，RBAC2，RBAC3
+
+
+
+
+在编码实践中RBAC模块的组成
+	（以下通常包括crud)： 为新用户授予访问资源的权限（即有新用户也有新资源），对资源的管理
+	用户管理
+	角色管理
+	权限管理
+	日志管理
+	（注意：权限管理模块本身也需要被管理，递归的终结为超级管理员权限）
+
+	授权管理
+	资源管理
+	授权判断
+	会话管理（用户在当前交互中的活动角色，如何对活动角色进行管理）
+	身份鉴别（通常由认证模块负责）
+
+RBAC0（基础模型）
+	元素： 用户，角色，权限，组成权限的操作，操作对应的客体
+	映射： 用户-角色，角色-权限
+	权限： 绑定在在计算机操作和资源客体上的抽象概念（操作 + 客体）
+	主体： 能够 访问 处于控制下的角色、操作和客体的活动实体 （主体代表用户完成其所有请求，主体到用户应是单一映射，而用户到主体则不一定），这个概念主要出现在动态模型中
+	RBAC基础模型的动态组件包括： 角色激活和主体访问
+
+RBAC1（增加层级概念）
+	增加角色继承架构
+	使用多层角色的原因： 单一角色通常出现功能重叠的现象（属于不同角色的用户都会被授予一般性权限）
+	映射： 角色-角色
+	连接器角色： 
+		1.通常不直接赋予用户
+		2.可以包含任意的权限集，作为抽象功能，抽象职责，抽象任务或抽象活动（便于重用）
+		3.通常如果在角色中有80%或更多的权限重叠，那么就可以选择创建一个连接器角色
+	可以选择性的为角色加上限定符
+
+职责分离(SoD): 关键操作必须由两个或更多的人来完成，这样任何一个人都不可能单独的破坏安全系统
+RBAC2（增加约束概念）
+	增加职责分离约束：即角色A和角色B对应的用户集合不能有交集
+	职责分离方法： 静态和动态方法 
+	静态职责分离模型：在为用户指派角色时，就为角色施加约束（例如，如果为某用户授予角色A,就不能再为其授予角色B）
+	动态职责分离模型：用户以活动状态使用系统时其约束才会发挥作用（例如，它可以同时赋予某用户角色A和角色B，但不允许在一个会话中同时充当两个角色）
+	
+	静态职责分离策略可以统一制定，并统一的施加于特定的角色之上（需要分分分层角色和非层次化角色机构讨论）
+
+	操作性职责分离
+
+
+
+
+
+yii2中实现的具体分析
+	authManager Component  ： yii\rbac\DbManager
+	tables:（auth_item，auth_item_child，auth_assignment，auth_rule）
+		"auth_item"： 
+			重要字段： name，type， description，rule_name,data
+		"auth_item_child" :
+			重要字段： parent，child
+		"auth_assignment" ：
+			重要字段： item_name,user_id
+		"auth_rule" : 
+			重要字段： name，data
+
+
+	如何设计权限继承结构？
+		0.尽可能列出存在的角色
+		1.列出所有需要被管理的资源
+		2.对每种资源列出所有需要被管理的操作
+		3.根据每种资源的每种操作，组合出所有的基本（操作，资源）（只分析需要进行权限管理的），形成"最底层permission"
+		4.对每个"最底层permission"进行分析，确定是否在判断该permission时需要附加rule（需要系统中的每种角色进行考虑）
+		5.将附加rule的permission作为其"最底层permission"的上层permission（即继承）
+		6.逐层构建权限基层结构，并注意观察是否需要构建连接器角色
+
+		如何设计权限继承结构？(修正后)
+		0.列出一些可能存在的角色
+		1.列出所有需要被管理的资源
+		2.对每种资源列出所有需要被管理的操作
+		3.根据每种资源的每种操作，组合出所有的基本（操作，资源）（只分析需要进行权限管理的），形成"最底层permission"
+		4.对所有当前存在的permission构成的集合进行逐层划分（按照最小权限原则，并联系可能存在的角色）
+		5.根据上一步的划分，在每一个分界处提取出角色（其中可能包含连接器角色）	
+		6.整理以上的工作，得到基本权限继承结构
+		7.对基本权限继承结构中的元素进行分析，确定是否需要附加rule（通常考虑在permission元素上添加）
+		8.将带有rule的"permission"作为其"最底层permission"的上层权限，如果"最底层permission"没有上层角色，则可以考虑从结构中删除
+		9.整理并回顾，优化每个元素的命名
+
+
+
+
+
+
+
+
+
+
+以trackstar为例进行演示
+	0.角色： Reader,Member,Owner
+	
+	1.User,Project,Issue
+	
+	2.
+		User : create,update,delete,read
+		Project: create,update,delete,read
+		Issue : create,update,delete,read
+
+	3.
+		User 类： (create,user) 	(update, user)	 (delete, user)	 (read, user)
+		Project : (create, project)	(update, project)	(delete, project)	(read, user)
+		Issue : (create, issue)	(update, issue)	(delete, issue) 	(read, issue)
+
+	4&5.
+		Reader ： (read, user)	（read, project）	(read, issue)
+		Member ： Reader	(create，issue)	(update, issue)	(delete, issue) 	
+		Owner : Member	(create, user)	(update, user)	(delete, user)	(update， project)	（delete，project）
+		应用用户 ： （create，project）   （因此可以不需要这个permission）
+
+	6&7&8&9.
+		删除(create,project)这个permission
+		其他所有的”最底层permission“添加rule”属于project“，然后以带有rule的permission取代原有的”最底层permission“
+		将(create,user)重命名为(add,user);将(create,issue)重命名为(add,issue)
+
+
+关于角色赋予的问题
+	1.
+		因为某用户在不同的project中会有不同的角色
+		所以需要有关联表： （user，project，role）
+	2.
+		当用户在不同的情景下具有不同的角色时，要如何进行权限判定？
+		解决方法： 
+			1.assignment表不应该是仅仅更用户绑定，需要添加字段“上下文环境”（例如当前是在哪个project中），（user，context，role）组成主键
+			2.具有更好扩展性的做法
+				两张独立的表：assignment表（id，user，role），context_project表（project_id，assignment_id）
+			3.结合1和2，使用yii2的原assignment表不变，添加新表contxt_project（project_id,user_id,role）
+
+			在做了以上的改进之后，在checkAccess时需要先根据上下文环境得到当前的role，然后再进行检验
+			2和3中，在添加新的"与上下文环境相关的"（user，role）时，先判断（user，role）对是否已经存在，不存在时再添加
+
+
+
+
+
+
+
+
+
+
+对DbManager::checkAccess的分析
+	1.从“auth_assignment”中仅根据user_id获取assignments（关键字段item_name,user_id，注意返回的assignments可能有多个）
+	2.如果没有assignment直接返回false
+	3.递归检测   DbManager::checkAccessRecursive
+
+	代码如下：
+	public function checkAccess($userId, $permissionName, $params = [])
+	{
+	    $assignments = $this->getAssignments($userId);
+
+	    if ($this->hasNoAssignments($assignments)) {
+	        return false;
+	    }
+
+	    $this->loadFromCache();
+	    if ($this->items !== null) {
+	        return $this->checkAccessFromCache($userId, $permissionName, $params, $assignments);
+	    } else {
+	        return $this->checkAccessRecursive($userId, $permissionName, $params, $assignments);
+	    }
+	}
+
+对DbManager::checkAccessRecursive的分析
+	1.如果在item表中根本没有该权限定义，直接返回false
+	2.如果执行当前Item的rule失败，直接返回false
+	3.如果在assignments中存在当前Item，或者当前Item是默认roles，则返回true
+	4.获取当前Item的父Items，递归检验
+	
+	代码如下：
+	protected function checkAccessRecursive($user, $itemName, $params, $assignments)
+	{
+	    if (($item = $this->getItem($itemName)) === null) {
+	        return false;
+	    }
+
+	    Yii::trace($item instanceof Role ? "Checking role: $itemName" : "Checking permission: $itemName", __METHOD__);
+
+	    if (!$this->executeRule($user, $item, $params)) {
+	        return false;
+	    }
+
+	    if (isset($assignments[$itemName]) || in_array($itemName, $this->defaultRoles)) {
+	        return true;
+	    }
+
+	    $query = new Query;
+	    $parents = $query->select(['parent'])
+	        ->from($this->itemChildTable)
+	        ->where(['child' => $itemName])
+	        ->column($this->db);
+	    foreach ($parents as $parent) {
+	        if ($this->checkAccessRecursive($user, $parent, $params, $assignments)) {
+	            return true;
+	        }
+	    }
+
+	    return false;
+	}
+
+
+
+
+举例：
+	三元组  ： 
+	（project， user， role）
+	（1，1，reader）
+	（2，1，member）
+	（3，1，owner）
+
+	assignment ： （1，reader），（1，member），（1，owner）
+
+	假设判断权限：（update，issue）
+
+
+
+
+
+
+rule的实现（附加于role）： 
+public function isUserInRole($role){
+	$sql = "SELECT role FROM tbl_project_user_role WHERE project_id=:projectId AND user_id=:userId AND role=:role";
+	$command = Yii::app()->db->createCommand($sql);
+	$command->bindValue(':projectId',$this->id,PDO::PARAM_INT);
+	$command->bindValue(':userId',Yii);
+	...
+}
+
+
+如何确定user在不同project中的role(即判断上下文)？
+	将rule赋予角色
+	在rule中： 由上下文相关的资源（如project类）去执行判断，确保当前用户分配了相应的资源，并且具有相应的角色（因此在不同的角色中rule的具体规则是有区别的！！！）
+	在rule的判断中，需要借助表project_user_role,而project_user此时就可以省略了（因为这个通用的关联表被project_user_role取代了）

@@ -1,0 +1,72 @@
+session部分
+
+在具体实践中，应该在application中统一使用session的风格，优先使用Yii2中封装好的对象
+
+$session = Yii::$app->session;
+
+$language = $session->get('language');
+
+$session->set('language', 'en-US');
+
+$session->remove('language');
+
+if ($session->has('language'))
+
+foreach ($session as $name => $value) ...
+
+注意： 
+1.当通过session 组件存取SESSION数据时，session组件会自动对SESSION进行一些初始化（如果是还没有初始化过的话）；而如果使用$_SESSION的话就要自己显式调用session_start（)等函数进行初始化。
+
+2.
+	// the following code will NOT work
+	$session['captcha']['number'] = 5;
+	$session['captcha']['lifetime'] = 3600;
+
+	// the following code works:
+	$session['captcha'] = [
+    		'number' => 5,
+    		'lifetime' => 3600,
+	];
+
+	推荐的解决办法：
+	$session['captcha.number'] = 5;
+	即不要直接在session中存储数组，而是改用前缀的方式
+
+3.当希望使用$_SESSION的方式存取session 数据时，尽量确保在这之前调用过 yii\web\Session::open()，因为其中的代码包含了对session存储层的处理
+
+
+
+
+
+
+
+
+
+
+
+cookie部分
+1.在yii2 中每一个cookie对应一个 yii\web\Cookie 所实例化的对象
+2.可以通过   yii\web\Request  或 yii\web\Response 中的cookies属性使用yii中的cookie
+	yii\web\Request  ： 这里的cookies代表此次请求中包含的cookie
+	yii\web\Response ： 这里的cookies代表响应中将包含的cookie
+3.通常来说，都是在controller对cookie进行操作
+4.使用例子
+	读取cookie
+	$cookies = Yii::$app->request->cookies;
+	$cookie = $cookies->get('language') //没有则返回null
+	$language = $cookies->getValue('language', 'en');//没有则返回默认值
+	$cookies->has('language')
+
+	设置cookie
+	$cookies = Yii::$app->response->cookies;
+
+	$cookies->add(new \yii\web\Cookie([
+    		'name' => 'language',
+    		'value' => 'zh-CN',
+	]));
+
+	$cookies->remove('language');
+
+5.在yii中具有一定的机制来校验cookie是否在客户端被篡改了，（通过使用request组件，其中会对每个cookie生成一个hash值）;一旦某个cookie被篡改，就无法通过request组价获取了，但依然可以使用原生的$_COOKIE获取(注意，这里需要配置request组件的cookieValidationKey属性)
+6.直接通过 $_COOKIE read/sent  ,或者 setcookie() 时，不会对cookie进行校验
+

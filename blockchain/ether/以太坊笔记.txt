@@ -1,0 +1,77 @@
+区别： 
+	以太坊客户端（多个语言版本，主要go-ethereum，cpp-ethereum）
+	以太坊钱包（Mist）
+
+每个账户都由一对钥匙定定义，一个私钥和一个公钥。 账户以地址为索引，地址由公钥衍生而来， 取公钥的最后 20 个字节。
+每对私钥 /地址都编码在一个钥匙文件里。钥匙文件的关键部分，账户私钥，通常用你创建账户时设置的密码进行加密。
+
+Mining Ether = Securing the network = verify computation
+
+
+PoW的要点：
+	1.要找到一个合适的nonce的最佳办法是通过不断的尝试枚举，以达到满足某个difficulty（这样我们就可以通过调整difficulty来控制挖出区块的时间）
+	2.可以很容易的验证别人找到的nonce是有效的
+
+区别:
+	geth命令
+	geth控制台
+
+
+geth
+	可以自定义bootstrap nodes（程序中硬编码了一组节点）
+	geth --bootnodes "enode://pubkey1@ip1:port1 enode://pubkey2@ip2:port2 enode://pubkey3@ip3:port3"
+	--nodiscover（不使用discovery protocol）
+
+	账户管理：子命令 account
+		list    print account addresses
+        new     create a new account
+        update  update an existing account
+        import  import a private key into a new account
+
+
+
+启动节点集群
+	需要确保： 
+	1.each instance has a separate data directory (--datadir)
+	2.each instance runs on a different port (both eth and rpc) (--port and --rpcport)
+	3.in case of a cluster the instances must know about each other
+	4.the ipc endpoint is unique or the ipc interface is disabled (--ipcpath or --ipcdisable)
+
+	命令：geth --datadir="/tmp/eth/60/01" -verbosity 6 --ipcdisable --port 30301 --rpcport 8101 console 2>> /tmp/eth/60/01.log
+		查看当前节点的信息： admin.nodeInfo.NodeUrl
+		添加其他节点：admin.addPeer(enodeUrlOfFirstInstance)
+
+
+矿工成功挖出一个block后可以获得：
+	1.固定 : A static block reward for the 'winning' block, consisting of exactly 5.0 Ether
+	2.gas : All of the gas expended within the block
+	3. ：An extra reward for including Uncles as part of the block, in the form of an extra 1/32 per Uncle included
+
+
+geth的interface
+	命令行
+
+	javascript console
+		1.web3 api
+		2.admin api
+
+		Management API : eth,admin,miner,personal,txpool,debug,shh,db,web3,net,inspect
+
+	JSON-RPC server
+
+	javascript web3 api
+
+
+Contract
+	Contract之间的交互："calling" or "sending messages"
+		A "message" is an object containing 
+			some quantity of ether 
+			a byte-array of data of any size
+			the addresses of a sender and a recipient
+
+
+Registrar services
+	composed of 3 components ： 
+		GlobalRegistrar to associate names (strings) to accounts (addresses).
+		HashReg to associate hashes to hashes (map any object to a 'content' hash.
+		UrlHint to associate content hashes to a hint for the location of the content. 

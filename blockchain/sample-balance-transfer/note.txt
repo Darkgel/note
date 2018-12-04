@@ -1,0 +1,24 @@
+所分析的代码位置： E:\code\fabric\sample\balance-transfer
+
+相应的github url : https://github.com/hyperledger/fabric-samples/tree/master/balance-transfer
+
+
+
+一个完整的区块链应用系统：
+    1.区块链网络： peer， orderer， CA ， chaincode
+    2.区块链网络部署系统： 使用 cello？
+    3.区块链网络管理系统： （这里的功能可能会与下面的app server重合）
+        1.chaincode部署，签名，打包等
+        2.与CA交互，用户身份的管理(包括组织的管理)
+        3.channel的建立与撤销等
+        4.peer的管理
+    4.app server端，作为app client 与 区块链网络的中介
+    5.app client端，最终提供给用户的界面（与app server端协作，完成用户登录，完成chaincode 的query和invoke）
+
+
+
+
+
+
+
+

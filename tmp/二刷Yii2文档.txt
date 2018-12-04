@@ -1,0 +1,879 @@
+yii\base\Object: 提供getter和setter
+yii\base\Component: 继承自Object，支持事件（event）和行为（behavior）
+
+
+对Object的配置
+最后一个参数为$config数组，可以为对象赋予属性
+class MyClass extends \yii\base\Object
+{
+    public function __construct($param1, $param2, $config = [])
+    {
+        // ... initialization before configuration is applied
+
+        parent::__construct($config);
+    }
+
+    //在构造函数之后会执行init函数
+    public function init()
+    {
+        parent::init();
+
+        // ... initialization after configuration is applied
+    }
+}
+
+通过依赖注入机制生成实例
+$object = Yii::createObject([
+    'class' => 'MyClass',
+    'property1' => 'abc',
+    'property2' => 'cde',
+], [$param1, $param2]);
+
+
+
+事件机制
+	触发事件
+		$event = new \yii\base\Event;
+		$component->trigger($eventName, $event);
+	绑定事件：
+		$component->on($eventName, $handler);
+		// To detach the handler, use:
+		// $component->off($eventName, $handler);
+
+
+Model的场景机制
+	都需要经过rule的检验，但如果是safe则可以massively assigned（因为引入了scenarios()，不再有unsafe验证器）
+	public function scenarios()
+	{
+	    return [
+	        'backend' => ['email', 'role'],
+	        'frontend' => ['email', '!role'],
+	    ];
+	}
+
+
+Action Filters
+	Action Filters通过behaviors来实现。
+	public function behaviors()
+	{
+	    return [
+	        'access' => [
+	            'class' => 'yii\filters\AccessControl',
+	            'rules' => [
+	                ['allow' => true, 'actions' => ['admin'], 'roles' => ['@']],
+	            ],
+	        ],
+	    ];
+	}
+
+
+
+ActiveRecord
+	当读取大量数据的时候，可以在query后加上asArray(),提到性能 
+	如果需要设置属性的默认值，需要在init中进行设置
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+composer global require "fxp/composer-asset-plugin:^1.3.1"
+安装完后composer就可以处理bower或npm依赖
+
+
+
+
+http://hostname/index.php?r=post/view&id[]=123
+If you want an action parameter to accept array values, you should type-hint it with array, like the following:
+public function actionView(array $id, $version = null)
+{
+    // ...
+}
+
+
+
+
+You can also access attributes like accessing array elements, thanks to the support for ArrayAccess and Traversable by yii\base\Model:
+$model = new \app\models\ContactForm;
+
+// accessing attributes like array elements
+$model['name'] = 'example';
+echo $model['name'];
+
+// Model is traversable using foreach.
+foreach ($model as $name => $value) {
+    echo "$name: $value\n";
+}
+
+
+model中的attribute： non-static public 成员
+
+一表单汇中多个model   loadMultiple()、validateMultiple()
+
+The scenario feature is primarily used by validation and massive attribute assignment
+
+
+
+
+The simplest way of converting a model into an array is to use the yii\base\Model::$attributes property. For example,
+$post = \app\models\Post::findOne(100);
+$array = $post->attributes;
+
+
+
+
+Within controllers, you may call the following controller methods to render views:
+render(): renders a named view and applies a layout to the rendering result.
+renderPartial(): renders a named view without any layout.
+renderAjax(): renders a named view without any layout, and injects all registered JS/CSS scripts and files. It is usually used in response to AJAX Web requests.
+renderFile(): renders a view specified in terms of a view file path or alias.
+renderContent(): renders a static string by embedding it into the currently applicable layout. This method is available since version 2.0.1.
+
+
+Within widgets, you may call the following widget methods to render views.
+render(): renders a named view.(并没有布局)
+renderFile(): renders a view specified in terms of a view file path or alias.
+
+You can render a view within another view by calling one of the following methods provided by the view component:
+render(): renders a named view.
+renderAjax(): renders a named view and injects all registered JS/CSS scripts and files. It is usually used in response to AJAX Web requests.
+renderFile(): renders a view specified in terms of a view file path or alias.
+
+In any place, you can get access to the view application component by the expression Yii::$app->view and then call its aforementioned methods to render a view. For example,
+echo \Yii::$app->view->renderFile('@app/views/site/license.php');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+If the init() method contains a lot of code initializing the module's properties, you may also save them in terms of a configuration and load it with the following code in init():
+这样就能在模块内使用配置文件了
+public function init()
+{
+    parent::init();
+    // initialize the module with the configuration loaded from config.php
+    \Yii::configure($this, require(__DIR__ . '/config.php'));
+}
+
+
+
+
+Within a module, you may often need to get the instance of the module class so that you can access the module ID, module parameters, module components, etc. You can do so by using the following statement:
+$module = MyModuleClass::getInstance();
+// get the child module whose ID is "forum"
+$module = \Yii::$app->getModule('forum');
+// get the module to which the currently requested controller belongs
+$module = \Yii::$app->controller->module;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Filters are essentially a special kind of behaviors.Therefore, using filters is the same as using behaviors.
+
+
+
+自动管理静态资源的版本
+return [
+    // ...
+    'components' => [
+        'assetManager' => [
+            'appendTimestamp' => true,
+        ],
+    ],
+];
+
+合并和压缩静态资源（在分散的asset bundle上建立更高一级的asset bundle）
+1.Find all the asset bundles in your application that you plan to combine and compress.
+2.Divide these bundles into one or a few groups. Note that each bundle can only belong to a single group.
+3.Combine/compress the CSS files in each group into a single file. Do this similarly for the JavaScript files.
+4.Define a new asset bundle for each group:
+	Set the css and js properties to be the combined CSS and JavaScript files, respectively.
+	Customize the asset bundles in each group by setting their css and js properties to be empty, and setting their depends property to be the new asset bundle created for the group.
+
+示例：
+return [
+    'components' => [
+        'assetManager' => [
+            'bundles' => [
+                'all' => [
+                    'class' => 'yii\web\AssetBundle',
+                    'basePath' => '@webroot/assets',
+                    'baseUrl' => '@web/assets',
+                    'css' => ['all-xyz.css'],
+                    'js' => ['all-xyz.js'],
+                ],
+                'A' => ['css' => [], 'js' => [], 'depends' => ['all']],
+                'B' => ['css' => [], 'js' => [], 'depends' => ['all']],
+                'C' => ['css' => [], 'js' => [], 'depends' => ['all']],
+                'D' => ['css' => [], 'js' => [], 'depends' => ['all']],
+            ],
+        ],
+    ],
+];
+
+return [
+    'components' => [
+        'assetManager' => [
+            'bundles' => require(__DIR__ . '/' . (YII_ENV_PROD ? 'assets-prod.php' : 'assets-dev.php')),  
+        ],
+    ],
+];
+
+
+可以的工具yii asset
+
+
+
+手动安装扩展
+In some rare occasions, you may want to install some or all extensions manually, rather than relying on Composer. To do so, you should:
+	1.download the extension archive files and unpack them in the vendor directory.
+	2.install the class autoloaders provided by the extensions, if any.
+	3.download and install all dependent extensions as instructed.
+
+
+
+
+
+Logging
+	Yii::trace(): record a message to trace how a piece of code runs. This is mainly for development use.
+	Yii::info(): record a message that conveys some useful information.
+	Yii::warning(): record a warning message that indicates something unexpected has happened.
+	Yii::error(): record a fatal error that should be investigated as soon as possible.
+	（实际上都是调用yii\log\Logger::log($message, $level, $category = 'application')）
+
+	常用调用方式（category参数通常会赋值为 __METHOD__）
+	Yii::trace('start calculating average revenue', __METHOD__);
+
+	Info: Log messages can be strings as well as complex data, such as arrays or objects. It is the responsibility of log targets to properly deal with log messages. By default, if a log message is not a string, it will be exported as a string by calling yii\helpers\VarDumper::export().
+
+
+	注意： 
+		Yii::getLogger()(相关变量为$_logger)  对应的类为   yii\log\Logger
+		Yii::$app->log  对应的类为 yii\log\Dispatcher
+		在Yii::$app的bootstrap过程中，会实例化Yii::$app->log组件，而yii\log\Dispatcher的构造函数中会关联Yii::getLogger()和Yii::$app->log(即Yii::$app->log->_logger为Yii::_logger,即yii\log\Logger的实例，而Yii::_logger->dispatcher为Yii::$app->log)
+
+	在Yii::$app->log实例化后，会执行init()，在其中会实例化各种target
+
+
+
+Event
+	实例级别的事件：
+		$foo->on(Foo::EVENT_HELLO, 'function_name');
+		$this->trigger(self::EVENT_MESSAGE_SENT, $event);
+		一个实例绑定自己相关的事件在数组中$_events中，当实例自身触发事件时检测$_events来执行相应的handler($this->_events)
+	类级别的事件:( 这个可以实现在一个类中触发事件，而由另一个类处理)
+		Event::on(Foo::className(), Foo::EVENT_HELLO, function ($event) {var_dump($event->sender); });
+		Event::trigger(Foo::className(), Foo::EVENT_HELLO);
+		self::$_events
+	类中的事件名最好定义为常量
+
+	如有必要，可以把所有的事件及handler绑定到Yii::$app中，进行统一管理
+
+
+
+Configuration
+[
+    'class' => 'ClassName',
+    'propertyName' => 'propertyValue',
+    'on eventName' => $eventHandler,   //配置事件
+    'as behaviorName' => $behaviorConfig, //配置行为
+]
+
+
+
+
+Class Autoloading
+	all core Yii classes are autoloaded by class map
+	自己写的在app命名空间下的类以及某些定义了别名的第三方库，通过解析别名后直接include
+
+
+
+
+
+
+Data Access Object
+	Executing SQL Queries
+		$posts = Yii::$app->db->createCommand('SELECT * FROM post')->queryAll();
+		$post = Yii::$app->db->createCommand('SELECT * FROM post WHERE id=1')->queryOne();
+		$titles = Yii::$app->db->createCommand('SELECT title FROM post')->queryColumn();
+		$count = Yii::$app->db->createCommand('SELECT COUNT(*) FROM post')$count = Yii::$app->db->createCommand('SELECT COUNT(*) FROM post')
+             ->queryScalar();->queryScalar();
+
+          为了更好的跨数据库：
+          	[[column name]]: enclose a column name to be quoted in double square brackets;
+		{{table name}}: enclose a table name to be quoted in double curly brackets.
+		$count = Yii::$app->db->createCommand("SELECT COUNT([[id]]) FROM {{employee}}")->queryScalar();
+		//在有使用表前缀的情况下
+		$count = Yii::$app->db->createCommand("SELECT COUNT([[id]]) FROM {{%employee}}")->queryScalar();
+
+	事务：
+		$db = Yii::$app->db;
+		$transaction = $db->beginTransaction();
+		try {
+		    $db->createCommand($sql1)->execute();
+		    $db->createCommand($sql2)->execute();
+		    // ... executing other SQL statements ...
+		    
+		    $transaction->commit();
+		} catch(\Exception $e) {
+		    $transaction->rollBack();
+		    throw $e;
+		} catch(\Throwable $e) {
+		    $transaction->rollBack();
+		    throw $e;
+		}
+
+	Yii可以获取到数据库架构，而且利用这些数据来辅助query builder 和 Active Record
+
+
+
+Active Record 
+	asArray：可以提高性能，但是取回的数据都是字符串，而不会转化为响应的类型
+
+	批量取数据（这个使用query也可以做到）：
+		// fetch 10 customers at a time
+		foreach (Customer::find()->batch(10) as $customers) {
+		    // $customers is an array of 10 or fewer Customer objects
+		}
+
+		// fetch 10 customers at a time and iterate them one by one
+		foreach (Customer::find()->each(10) as $customer) {
+		    // $customer is a Customer object
+		}
+
+		// batch query with eager loading
+		foreach (Customer::find()->with('orders')->each() as $customer) {
+		    // $customer is a Customer object with the 'orders' relation populated
+		}
+
+	Updating Counters ： 
+		$post->updateCounters(['view_count' => 1]);
+		应该尽量使用上面这种方式来处理增量，文档给出的解释是： If you use yii\db\ActiveRecord::save() to update a counter column, you may end up with inaccurate result, because it is likely the same counter is being saved by multiple requests which read and write the same counter value.
+
+	获取数据表设计中的默认值
+		$customer->loadDefaultValues();
+
+	根据条件的update：
+		// UPDATE `customer` SET `status` = 1 WHERE `email` LIKE `%@example.com%`
+		Customer::updateAll(['status' => Customer::STATUS_ACTIVE], ['like', 'email', '@example.com']);
+		
+		// UPDATE `customer` SET `age` = `age` + 1
+		Customer::updateAllCounters(['age' => 1]);
+
+	删除数据：	
+		方法一：
+			$customer = Customer::findOne(123);
+			$customer->delete();
+
+		方法二：
+			Customer::deleteAll(['status' => Customer::STATUS_INACTIVE]);
+
+	Active Record生命周期：
+		新建实例（new）：
+			1.Class constructor.
+			2.init(): triggers an EVENT_INIT event.
+		通过查询获得实例：
+			When querying data through one of the querying methods, each newly populated Active Record will undergo the following life cycle:
+			1.Class constructor.
+			2.init(): triggers an EVENT_INIT event.
+			3.afterFind(): triggers an EVENT_AFTER_FIND event.
+		保存数据：
+			1.an EVENT_BEFORE_VALIDATE event. If the method returns false or yii\base\ModelEvent::$isValid is false, the rest of the steps will be skipped.
+			2.Performs data validation. If data validation fails, the steps after Step 3 will be skipped.
+			3.an EVENT_AFTER_VALIDATE event.
+			4.an EVENT_BEFORE_INSERT or EVENT_BEFORE_UPDATE event. If the method returns false or yii\base\ModelEvent::$isValid is false, the rest of the steps will be skipped.
+			5.Performs the actual data insertion or updating.
+			6.an EVENT_AFTER_INSERT or EVENT_AFTER_UPDATE event.
+		删除数据:
+			1.an EVENT_BEFORE_DELETE event. If the method returns false or yii\base\ModelEvent::$isValid is false, the rest of the steps will be skipped.
+			2.Performs the actual data deletion.
+			3.an EVENT_AFTER_DELETE event.
+
+	在Active Record中使用transaction
+		1.
+			Customer::getDb()->transaction(function($db) use ($customer) {
+			    $customer->id = 200;
+			    $customer->save();
+			    // ...other DB operations...
+			});
+		2.
+			$transaction = Customer::getDb()->beginTransaction();
+			try {
+			    $customer->id = 200;
+			    $customer->save();
+			    // ...other DB operations...
+			    $transaction->commit();
+			} catch(\Exception $e) {
+			    $transaction->rollBack();
+			    throw $e;
+			} catch(\Throwable $e) {
+			    $transaction->rollBack();
+			    throw $e;
+			}
+		3.
+			class Customer extends ActiveRecord
+			{
+			    public function transactions()
+			    {
+			        return [
+			            'admin' => self::OP_INSERT,
+			            'api' => self::OP_INSERT | self::OP_UPDATE | self::OP_DELETE,
+			            // the above is equivalent to the following:
+			            // 'api' => self::OP_ALL,
+			        ];
+			    }
+			}
+
+
+	关联查找（以下都是从主表的角度出发）：
+		1.has one ：外键在主表
+		2.has many ： 外键在副表
+		3.has many ： 主表、副表都有外键，外键对应关联表
+
+	class Order extends ActiveRecord
+	{
+	    public function getItems()
+	    {
+	        return $this->hasMany(Item::className(), ['id' => 'item_id'])
+	            ->viaTable('order_item', ['order_id' => 'id']);
+	    }
+	}
+	等价于：
+	class Order extends ActiveRecord
+	{
+	    public function getOrderItems()
+	    {
+	        return $this->hasMany(OrderItem::className(), ['order_id' => 'id']);
+	    }
+
+	    public function getItems()
+	    {
+	        return $this->hasMany(Item::className(), ['id' => 'item_id'])
+	            ->via('orderItems');
+	    }
+	}
+
+	当不想使用懒加载时，使用with：
+		// SELECT * FROM `customer` LIMIT 100;
+		// SELECT * FROM `orders` WHERE `customer_id` IN (...)
+		$customers = Customer::find()
+		    ->with('orders')
+		    ->limit(100)
+		    ->all();
+
+		foreach ($customers as $customer) {
+		    // no SQL executed
+		    $orders = $customer->orders;
+		}
+
+		// eager loading both "orders" and "country"
+		$customers = Customer::find()->with('orders', 'country')->all();
+
+		// eager loading "orders" and the nested relation "orders.items"
+		$customers = Customer::find()->with('orders.items')->all();
+		// access the items of the first order of the first customer
+		// no SQL executed
+		$items = $customers[0]->orders[0]->items;
+
+	当需要根据关联查找中副表某些列的值来确定主表row的选择时，应该是使用jion语句：
+		leftJoin()
+		joinWith():这个可以使用已经定义的关联关系
+		innerJoinWith()
+
+
+	通过Active Record关联
+	$customer = Customer::findOne(123);
+	$order = new Order();
+	$order->subtotal = 100;
+	// ...
+	$order->link('customer', $customer);
+	$customer->unlink('orders', $customer->orders[0]);
+
+
+
+	In big projects, it is recommended that you use customized query classes to hold most query-related code so that the Active Record classes can be kept clean.
+
+
+
+
+
+数据迁移
+	you should return false in the down() method to indicate that the migration is not reversible.
+
+	The first command will apply migrations in @app/migrations/db1 to the db1 database, the second command will apply migrations in @app/migrations/db2 to db2, and so on:
+	yii migrate --migrationPath=@app/migrations/db1 --db=db1
+	yii migrate --migrationPath=@app/migrations/db2 --db=db2
+
+
+
+Form
+	如果表单中的字段与数据库字段不一致，或需要对表单的字段进行格式化或逻辑处理，则可以建立一个独立的model来处理
+
+	If you have only one model in a form and want to simplify the input names you may skip the array part by overriding the formName() method of the model to return an empty string. This can be useful for filter models used in the GridView to create nicer URLs
+
+	属性数组的使用
+	// allow multiple files to be uploaded:
+	echo $form->field($model, 'uploadFile[]')->fileInput(['multiple'=>'multiple']);
+	// allow multiple items to be checked:
+	echo $form->field($model, 'items[]')->checkboxList(['a' => 'Item A', 'b' => 'Item B', 'c' => 'Item C']);
+
+
+	当前端使用了bootstrap框架时，可以使用 yii\bootstrap\ActiveForm来代替yii\widgets\ActiveForm
+
+	给必填字段添加红色的星号
+	div.required label.control-label:after {
+	    content: " *";
+	    color: red;
+	}
+
+	三种表单列表：dropdownList()、radioList()、checkboxList()
+
+
+	Pjax
+		yii\widgets\Pjax
+
+
+	数据校验
+		条件式校验：
+			服务器端 
+			['state', 'required', 'when' => function($model) {
+		        return $model->country == 'USA';
+		    }]
+	    	客户端
+	        ['state', 'required', 'when' => function ($model) {
+		        return $model->country == 'USA';
+		    }, 'whenClient' => "function (attribute, value) {
+		        return $('#country').val() == 'USA';
+		    }"]
+
+		数据过滤
+		['age', 'trim'],
+		['age', 'default', 'value' => null],//可以为某些提交设置默认值
+		['age', 'integer', 'integerOnly' => true, 'min' => 0],
+		['age', 'filter', 'filter' => 'intval', 'skipOnEmpty' => true],
+
+		//自定义判空
+		['agree', 'required', 'isEmpty' => function ($value) {
+	        return empty($value);
+	    }]
+
+	    独立验证
+	    $email = 'test@example.com';
+		$validator = new yii\validators\EmailValidator();
+		if ($validator->validate($email, $error)) {
+		    echo 'Email is valid.';
+		} else {
+		    echo $error;
+		}
+
+
+		ajax验证:
+			echo $form->field($model, 'username', ['enableAjaxValidation' => true]);
+			或
+			$form = ActiveForm::begin([
+			    'id' => 'contact-form',
+			    'enableAjaxValidation' => true,
+			]);
+
+			然后在控制器端
+			if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
+			    Yii::$app->response->format = Response::FORMAT_JSON;
+			    return ActiveForm::validate($model);
+			}
+
+		上传文件
+			if (Yii::$app->request->isPost) {
+	            $model->imageFile = UploadedFile::getInstance($model, 'imageFile');
+	            if ($model->upload()) {
+	                // file is uploaded successfully
+	                return;
+	            }
+	        }
+
+	        <?= $form->field($model, 'imageFile')->fileInput() ?>
+
+	        public function upload()
+		    {
+		        if ($this->validate()) {
+		            $this->imageFile->saveAs('uploads/' . $this->imageFile->baseName . '.' . $this->imageFile->extension);
+		            return true;
+		        } else {
+		            return false;
+		        }
+		    }
+
+
+		    上传多个文件
+		    model：
+			public function rules()
+		    {
+		        return [
+		            [['imageFiles'], 'file', 'skipOnEmpty' => false, 'extensions' => 'png, jpg', 'maxFiles' => 4],
+		        ];
+		    }
+		    
+		    public function upload()
+		    {
+		        if ($this->validate()) { 
+		            foreach ($this->imageFiles as $file) {
+		                $file->saveAs('uploads/' . $file->baseName . '.' . $file->extension);
+		            }
+		            return true;
+		        } else {
+		            return false;
+		        }
+		    }
+
+		    controller：
+		    if (Yii::$app->request->isPost) {
+	            $model->imageFiles = UploadedFile::getInstances($model, 'imageFiles');
+	            if ($model->upload()) {
+	                // file is uploaded successfully
+	                return;
+	            }
+	        }
+
+		    view：
+		    <?= $form->field($model, 'imageFiles[]')->fileInput(['multiple' => true, 'accept' => 'image/*']) ?>
+
+	多model：
+		Model::loadMultiple() load post data into an array of models.
+		Model::validateMultiple() validates an array of models.
+
+		public function actionUpdate($id)
+	    {
+	        $user = User::findOne($id);
+	        if (!$user) {
+	            throw new NotFoundHttpException("The user was not found.");
+	        }
+	        
+	        $profile = Profile::findOne($user->profile_id);
+	        
+	        if (!$profile) {
+	            throw new NotFoundHttpException("The user has no profile.");
+	        }
+	        
+	        $user->scenario = 'update';
+	        $profile->scenario = 'update';
+	        
+	        if ($user->load(Yii::$app->request->post()) && $profile->load(Yii::$app->request->post())) {
+	            $isValid = $user->validate();
+	            $isValid = $profile->validate() && $isValid;
+	            if ($isValid) {
+	                $user->save(false);
+	                $profile->save(false);
+	                return $this->redirect(['user/view', 'id' => $id]);
+	            }
+	        }
+	        
+	        return $this->render('update', [
+	            'user' => $user,
+	            'profile' => $profile,
+	        ]);
+	    }
+
+	    <?= $form->field($user, 'username') ?>
+	    <?= $form->field($profile, 'website') ?>
+
+
+	    客户端表单扩展：
+	    	事件：
+	    		$('#contact-form').on('beforeSubmit', function (e) {
+					if (!confirm("Everything is correct. Submit?")) {
+						return false;
+					}
+					return true;
+				});
+				各种事件：beforeValidate，afterValidate，beforeValidateAttribute，afterValidateAttribute，beforeSubmit，ajaxBeforeSend，ajaxComplete，
+
+			使用ajax提交表单：
+				var $form = $('#formId');
+				$form.on('beforeSubmit', function() {
+				    var data = $form.serialize();
+				    $.ajax({
+				        url: $form.attr('action'),
+				        type: 'POST',
+				        data: data,
+				        success: function (data) {
+				            // Implement successful
+				        },
+				        error: function(jqXHR, errMsg) {
+				            alert(errMsg);
+				        }
+				     });
+				     return false; // prevent default submit
+				});
+
+			增加与删除表单字段：
+				$('#contact-form').yiiActiveForm('add', {
+				    id: 'address',
+				    name: 'address',
+				    container: '.field-address',
+				    input: '#address',
+				    error: '.help-block',
+				    validate:  function (attribute, value, messages, deferred, $form) {
+				        yii.validation.required(value, messages, {message: "Validation Message Here"});
+				    }
+				});
+
+				$('#contact-form').yiiActiveForm('remove', 'address');
+
+
+
+数据格式化
+	view中常用的formatter:
+		raw: the value is outputted as is, this is a pseudo-formatter that has no effect except that null values will be formatted using nullDisplay.
+		text: the value is HTML-encoded. This is the default format used by the GridView DataColumn.
+		ntext: the value is formatted as an HTML-encoded plain text with newlines converted into line breaks.
+		paragraphs: the value is formatted as HTML-encoded text paragraphs wrapped into <p> tags.
+		html: the value is purified using HtmlPurifier to avoid XSS attacks. You can pass additional options such as ['html', ['Attr.AllowedFrameTargets' => ['_blank']]].
+		email: the value is formatted as a mailto-link.
+		image: the value is formatted as an image tag.
+		url: the value is formatted as a hyperlink.
+		boolean: the value is formatted as a boolean. By default true is rendered as Yes and false as No, translated to the current application language. You can adjust this by configuring the yii\i18n\Formatter::$booleanFormat property.
+
+
+Data Provider
+	封装了pagination和sorting
+	Yii提供了的data provider：
+		yii\data\ActiveDataProvider: uses yii\db\Query or yii\db\ActiveQuery to query data from databases and return them in terms of arrays or Active Record instances.
+		yii\data\SqlDataProvider: executes a SQL statement and returns database data as arrays.
+		yii\data\ArrayDataProvider: takes a big array and returns a slice of it based on the paginating and sorting specifications.
+
+
+
+Client Script
+	yii\web\View：
+		registerJs()     for inline scripts
+		registerJsFile() for external scripts
+		registerCss()
+		registerCssFile()
+
+
+Authorization
+	yii中能报access control list和rbac结合起来，通过yii\filters\AccessControl 中的role（实际上是触发Yii::$app->user->can()）
+
+
+Caching
+	Data caching
+	Fragment caching
+	Page caching  （filter实现）
+	HTTP caching  （filter实现）
+
+	query caching，fragment caching和page caching都是基于data caching
+
+
+RESTful
+	GET /users: list all users page by page;
+	HEAD /users: show the overview information of user listing;
+	POST /users: create a new user;
+	GET /users/123: return the details of the user 123;
+	HEAD /users/123: show the overview information of user 123;
+	PATCH /users/123 and PUT /users/123: update the user 123;
+	DELETE /users/123: delete the user 123;
+	OPTIONS /users: show the supported verbs regarding endpoint /users;
+	OPTIONS /users/123: show the supported verbs regarding endpoint /users/123.
+
+	Unlike Web applications, RESTful APIs are usually stateless, which means sessions or cookies should not be used（因此通常会使用secret access token）
+
+
+
+Testing
+	
+
+
+Core Validators 
+	http://www.yiiframework.com/doc-2.0/guide-tutorial-core-validators.html
+	在yii\validators\Validator的属性$builtInValidators定义了核心validator的别名
+
+
+
+Mail
+	Yii::$app->mailer->compose()
+    ->setFrom('from@domain.com')
+    ->setTo('to@domain.com')
+    ->setSubject('Message subject')
+    ->setTextBody('Plain text content')
+    ->setHtmlBody('<b>HTML content</b>')
+    ->send();
+
+
+
+Performance Tuning
+	如果使用了Markdown编辑器，最好缓存解析后的内容
+
+	开启Schema Caching
+		'db' => [
+            'class' => 'yii\db\Connection',
+            'dsn' => 'mysql:host=localhost;dbname=mydatabase',
+            'username' => 'root',
+            'password' => '',
+            'enableSchemaCache' => true,
+
+            // Duration of schema cache.
+            'schemaCacheDuration' => 3600,
+
+            // Name of the cache component used to store schema information
+            'schemaCache' => 'cache',
+        ],
+
+    合并&压缩静态资源
+
+    优化session存储
+
+    优化composer autoloader 
+    	composer dumpautoload -o

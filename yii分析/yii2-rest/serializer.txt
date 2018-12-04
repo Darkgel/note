@@ -1,0 +1,4 @@
+重写serializer：
+	1.$data instanceof Model && $data->hasErrors()
+	2.array（一条数据,还有Linkable）
+	3.dataProvider（多条数据，加分页）

@@ -1,0 +1,98 @@
+后期静态绑定(Late Static Bindings)
+“非转发调用”（non-forwarding call）
+“转发调用”（forwarding call） : 通过以下几种方式进行的静态调用 self::，parent::，static:: 以及 forward_static_call()
+
+
+
+class A {
+    public static function foo() {
+        static::who();
+    }
+
+    public static function who() {
+        echo __CLASS__."\n";
+    }
+}
+
+
+
+
+
+
+
+class B extends A {
+
+    public static function test() {
+        A::foo();
+        parent::foo();
+        self::foo();
+    }
+
+
+    public static function foo() {
+        static::who();
+    }
+
+    public static function who() {
+        echo __CLASS__."\n";
+    }
+
+}
+
+
+
+
+
+
+
+class C extends B {
+
+    public static function who() {
+        echo __CLASS__."\n";
+    }
+
+
+   public static function test() {
+        A::foo();     
+        parent::foo();  
+        self::foo();  
+    }
+
+
+    public static function foo() {
+        static::who();
+    }
+
+}
+
+
+C::test();   
+
+
+A
+B
+C
+
+
+
+class A {
+    public static function who() {
+        echo __CLASS__;
+    }
+
+    public static function test() {
+        self::who();
+    }
+}
+
+
+
+class B extends A {
+    public static function who() {
+        echo __CLASS__;
+    }
+
+    public static function test() {
+        self::who();   //在这一行背后，static的指向为B
+    }
+}

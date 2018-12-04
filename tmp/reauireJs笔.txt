@@ -1,0 +1,53 @@
+require会定义三个变量：define,require,requirejs，其中require === requirejs，一般使用require更简短
+
+
+define：
+define(function(){
+    function fun1(){
+      alert("it works");
+    }
+
+    fun1();
+})
+
+require:
+加载模块(注意require中的依赖是一个数组，即使只有一个依赖，你也必须使用数组来定义)，requir API的第二个参数是callback，一个function，是用来处理加载完毕后的逻辑，如：
+require(["js/a"]);
+或
+require(["js/a"],function(){
+    alert("load finished");
+})
+
+
+上面加载模块都是本地js，但是大部分情况下网页需要加载的JS可能来自本地服务器、其他网站或CDN，这样就不能通过这种方式来加载了，我们以加载一个jquery库为例：
+require.config({
+    paths : {
+        "jquery" : ["http://libs.baidu.com/jquery/2.0.3/jquery"]   
+    }
+})
+require(["jquery","js/a"],function($){
+    $(function(){
+        alert("load finished");  
+    })
+})
+本地的js我们也可以这样配置：
+require.config({
+    paths : {
+        "jquery" : ["http://libs.baidu.com/jquery/2.0.3/jquery"],
+        "a" : "js/a"   
+    }
+})
+require(["jquery","a"],function($){
+    $(function(){
+        alert("load finished");  
+    })
+})
+
+
+上面例子中的callback函数中发现有$参数，这个就是依赖的jquery模块的输出变量，如果你依赖多个模块，可以依次写入多个参数来使用：
+require(["jquery","underscore"],function($, _){
+    $(function(){
+        _.each([1,2,3],alert);
+    })
+})
+如果某个模块不输出变量值，则没有，所以尽量将输出的模块写在前面，防止位置错乱引发误解
