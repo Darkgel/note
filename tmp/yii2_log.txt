@@ -1,0 +1,36 @@
+使用yii log的步骤
+	1.在适当的地方调用方法记录log
+	2.配置各种log targets来筛选和导出日志信息
+	3.测试导出的筛选后的日志信息
+
+
+日志信息筛选
+	1.log level：
+		'trace' => Yii::debug().
+		'info' =>  Yii::info()
+		'warning' => Yii::warning()
+		'error' => Yii::error()
+		'profile' => Yii::beginProfile() &  Yii::endProfile()
+	2.category ： 可自定义 eg： application （更常见的方法是使用__METHOD__）
+
+
+
+
+
+相关的类：
+	yii\log\Dispatcher
+
+	yii\log\Target ： 通过log level和category筛选日志，然后按照设定的格式导出到相应的介质（如邮件，数据库等）
+		若不配置相应的level属性，则会处理所有的level
+		若不配置相应的category属性，则会处理所有的category
+
+	yii\log\Logger
+		Yii工具类的静态属性（$_logger）
+		在内存中维护日志，并在达到一定数量后，把日志flush到log targets（在应用结束后也会进行flush）（yii\log\Logger的flushInterval属性）
+		注意：当日志从logger object flush到log target时，log target并不会立即导出到相应的介质，只有在log target中筛选后的日志数量达到一定程度的时候（yii\log\Target的exportInterval属性）
+
+		因此在一些长时间运行的console应用中，可以把'flushInterval'和'exportInterval' 设置为1（当然，频繁地flush和export会降低性能）
+
+
+	yii\log\FileTarget:
+		默认文件路径为：runtime/logs/app.log
