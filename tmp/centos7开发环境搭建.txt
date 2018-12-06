@@ -1,0 +1,385 @@
+网络配置
+    dns配置（默认使用网关？没有自己配置相应的dns也能使用）
+    动态ip配置(nat或桥接)
+        进入/etc/sysconfig/network-scripts,找到网卡对应的配置文件（eg：ifcfg-ens33）,配置下面的内容
+            TYPE=Ethernet
+            PROXY_MEHTOD=none
+            BROWSER_ONLY=no
+            BOOTPROTO=dpcp
+            DEFROUTE=yes
+            IPV4_FAILURE_FATAL=no
+            IPV6INIT=yes
+            IPV6_AUTOCONF=yes
+            IPV6_DEFROUTE=yes 
+            IPV6_FAILURE_FATAL=no
+            IPV6_ADDR_GEN_MODE=stable-privacy
+            NAME=ens33
+            UUID=这个是mac？暂时不清楚
+            DEVICE=ens33
+            ONBOOT=yes
+
+    NAT + host-only网络配置
+        host-only网络配置
+            1.在vm中添加一个host-only网络，并将其分配给相应的虚拟机
+            2.进入虚拟机后通过ip addr命令可以看到多了一个网络接口（假设为enp0s8），为接口生成uuid(uuidgen enp0s8)(ac3c6922-c33b-4f8b-8d7f-13a958b0807f)
+            3.在/etc/sysconfig/network-scripts下添加相应的网络接口配置文件
+                TYPE=Ethernet
+                PROXY_MEHTOD=none
+                BROWSER_ONLY=no
+                BOOTPROTO=static
+                DEFROUTE=yes
+                IPV4_FAILURE_FATAL=no
+                IPV6INIT=yes
+                IPV6_AUTOCONF=yes
+                IPV6_DEFROUTE=yes 
+                IPV6_FAILURE_FATAL=no
+                IPV6_ADDR_GEN_MODE=stable-privacy
+                NAME=ens0s8
+                UUID=ac3c6922-c33b-4f8b-8d7f-13a958b0807f
+                DEVICE=ens0s8
+                ONBOOT=yes
+                IPADDR=192.168.56.102
+                GATEWAY=192.168.56.1
+                NETMASK=255.255.255.0
+            4.重启网络：systemctl restart network
+                
+配置软件源
+    https://opsx.alibaba.com/mirror 
+
+    添加epel源
+        方法1： 
+            wget -P /etc/yum.repos.d/ http://mirrors.aliyun.com/repo/epel-7.repo
+            yum clean all
+            yum makecache
+
+        方法2：
+            wget http://d.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+            rpm -ivh ./epel-release-latest-7.noarch.rpm
+            yum clean all
+            yum makecache
+
+ 安装增强功能（guest additions）
+    1.安装kernel-devel和gcc ：sudo yum install -y "kernel-devel-$(uname -r)" gcc bzip2
+    2.加载guest additions光盘
+    3.mkdir /mnt/cdrom
+    4.mount -t auto -r /dev/cdrom /mnt/cdrom
+    5.cd /mnt/cdrom
+    6.sudo sh ./VBoxLinuxAdditions.run
+
+添加共享文件夹
+    1.配置vm的共享文件夹
+    2.mount -t vboxsf shared_file（共享文件夹名） /data/php(挂载的目录)
+    3.设置开机自动挂载 
+        1.在/opt/onbootscript/下添加开机启动脚本（mount.sh,具备可执行权限），包含以下命令
+            mount -t vboxsf php /data/php
+        2.在文件/etc/rc.local中（以root用户）追加 : /opt/onbootscript/mount.sh
+        3.chmod +x /etc/rc.d/rc.local
+
+Selinux设置
+    开机关闭SELinux : 编辑/etc/selinux/config文件，将SELINUX的值设置为disabled
+
+安装gcc和开发环境
+    yum groupinstall "Development Tools"
+
+安装nginx
+    yum install nginx
+    systemctl start nginx
+    查看yum安装的文件 ： rpm -ql nginx
+
+防火墙设置
+    对外开放80端口 : firewall-cmd --zone=public --add-port=80/tcp --permanent
+        firewall-cmd : linux中提供的操作firewall的工具
+        --zone : 指定作用域
+        --add-port=80/tcp : 添加的端口，格式为：端口/通讯协议
+        --permanent : 表示永久生效，没有此参数重启后会失效
+
+    systemctl restart firewalld
+
+安装mysql
+    按照官方教程 ： http://dev.mysql.com/doc/mysql-yum-repo-quick-guide/en/
+
+编译安装5.4,7.1
+    1.下载源码包 ：  http://php.net/releases/
+    2.安装依赖包 ： yum install gcc gcc-c++ wget make libxml2 libxml2-devel openssl openssl-devel curl curl-devel libjpeg-devel freetype-devel bison autoconf libmcrypt libmcrypt-devel gd gd-devel mhash mhash-devel mcrypt
+    4.安装php语法分析器re2c ： yum install re2c
+    
+    configure参考
+        [root@localhost php-src-php-7.1.6]# ./configure \
+        --prefix=/usr/local/php \                                  [php安装的根目录]
+        --exec-prefix=/usr/local/php \                               [php执行文件所在目录]
+        --bindir=/usr/local/php/bin \                            [php/bin目录]
+        --sbindir=/usr/local/php/sbin \                            [php/sbin目录]
+        --includedir=/usr/local/php/include \                    [php包含文件所在目录]
+        --libdir=/usr/local/php/lib/php \                        [php/lib目录]
+        --mandir=/usr/local/php/php/man \                        [php/man目录]
+        --with-config-file-path=/usr/local/php/etc \               [php的配置目录]
+        --with-mysql-sock=/tmp/mysql.sock \           [php的Unix socket通信文件]
+        --with-mcrypt \                                         [是php里面重要的加密支持扩展库，linux环境下该库在默认情况下不开启]
+        --with-mhash \                                            [Mhash是基于离散数学原理的不可逆向的php加密方式扩展库，其在默认情况下不开启]
+        --with-openssl \                                        [OpenSSL 是一个安全套接字层密码库]
+        --with-mysqli=shared,mysqlnd \                          [php依赖mysql库]
+        --with-pdo-mysql=shared,mysqlnd \                       [php依赖mysql库]
+        --with-gd \                                                [gd库]                                                
+        --with-iconv \                                            [关闭iconv函数，种字符集间的转换]                        
+        --with-zlib \                                            [zlib是提供数据压缩用的函式库]
+        --enable-zip \                                            [打开对zip的支持]
+        --enable-inline-optimization \                            [优化线程]
+        --disable-debug \                                        [关闭调试模式]
+        --disable-rpath \                                        [关闭额外的运行库文件]
+        --enable-shared \                                        [启用动态库]
+        --enable-xml \                                            [开启xml扩展]
+        --enable-bcmath \                                        [打开图片大小调整,用到zabbix监控的时候用到了这个模块]
+        --enable-shmop \                                        [共享内存]
+        --enable-sysvsem \                                        [内存共享方案]
+        --enable-mbregex \                                        [开启多字节正则表达式的字符编码。]
+        --enable-mbstring \                                        [开启多字节字符串函数]
+        --enable-ftp \                                            [开启ftp]
+        --enable-gd-native-ttf \                                [开启gd库原有字体]
+        --enable-pcntl \                                        [PHP的进程控制支持实现了Unix方式的多进程创建]        
+        --enable-sockets \                                        [开启套节字]
+        --with-xmlrpc \                                            [打开xml-rpc的c语言]
+        --enable-soap \                                            [开启简单对象访问协议简单对象访问协议]
+        --without-pear \                                        [开启php扩展与应用库]
+        --with-gettext \                                        [开户php在当前域中查找消息]
+        --enable-session \                                      [允许php会话session]
+        --with-curl \                                           [允许curl扩展]
+        --with-jpeg-dir \                                        [指定jpeg安装目录yum安装过后不用再次指定会自动找到]
+        --with-freetype-dir \                                    [指定freetype安装目录yum安装过后不用再次指定会自动找到]
+        --enable-opcache \                                      [开启使用opcache缓存]
+        --enable-fpm \                                            [开启fpm]
+        --with-fpm-user=nginx \                                 [php-fpm的用户]
+        --with-fpm-group=nginx \                                [php-fpm的用户组]
+        --without-gdbm \                                        [数据库函数使用可扩展散列和类似于标准UNIX dbm的工作]
+        --enable-fast-install \                                    [为快速安装优化]
+        --disable-fileinfo
+
+
+    php54
+		新建目录/usr/local/php/php54
+        0.sudo ./buildconf --force (为了防止出现错误 ： cp:cannot stat 'sapi/cli/php.1': No such file or directory)
+        1.执行configure
+           sudo ./configure --prefix=/usr/local/php/php54 --exec-prefix=/usr/local/php/php54 --bindir=/usr/local/php/php54/bin --sbindir=/usr/local/php/php54/sbin --includedir=/usr/local/php/php54/include --libdir=/usr/local/php/php54/lib/php --mandir=/usr/local/php/php54/man --with-config-file-path=/usr/local/php/php54/etc --with-mysql-sock=/tmp/mysql.sock --with-mcrypt --with-mhash --with-openssl --with-mysqli=shared,mysqlnd --with-pdo-mysql=shared,mysqlnd --with-gd --with-iconv --with-zlib --enable-zip --enable-inline-optimization --disable-debug --disable-rpath --enable-shared --enable-xml --enable-bcmath --enable-shmop --enable-sysvsem --enable-mbregex --enable-mbstring --enable-ftp --enable-gd-native-ttf --enable-pcntl --enable-sockets --with-xmlrpc --enable-soap --without-pear --with-gettext --enable-session --with-curl --with-jpeg-dir --with-freetype-dir --enable-fpm --with-fpm-user=nginx --with-fpm-group=nginx -without-gdbm --enable-fast-install --disable-fileinfo  
+           
+        1-1.精简版configure
+        	sudo ./configure --prefix=/usr/local/php/php54 --datadir=/usr/local/php/php54/doc --mandir=/usr/local/php/php54/man --with-config-file-path=/usr/local/php/php54/etc --with-mcrypt --with-mhash --with-openssl --with-mysqli=shared,mysqlnd --with-pdo-mysql=shared,mysqlnd --with-gd --with-zlib --enable-zip --disable-rpath --enable-shared --enable-bcmath --enable-shmop --enable-sysvsem --enable-mbstring --enable-ftp --enable-gd-native-ttf --enable-pcntl --enable-sockets --with-xmlrpc --enable-soap --without-pear --with-gettext --with-curl --with-jpeg-dir --with-freetype-dir --enable-fpm --enable-fast-install --disable-fileinfo 
+        
+        2.sudo make (sudo make clean);编译完成后可以执行测试 make test
+        3.sudo make install
+        4.配置php
+            1.cp php.ini-production /usr/local/php/php54/etc/php.ini
+            2.修改php扩展目录所在位置
+                extension_dir="/usr/local/php/php54/lib/php/extensions/no_debug_non_zts_20160303"
+            3.修改时区
+                date.timezone=PRC
+
+        5.php-fpm配置
+            cp /usr/local/php/php54/etc/php-fpm.conf.default /usr/local/php/php54/etc/php-fpm.conf
+                pid=run/php-fpm.pid
+                error_log=log/php-fpm.log
+
+        6.nginx相应配置（nginx.conf）
+        	  1.在nginx.conf所在的目录下添加目录‘vhosts.d’(用于存放各个站点配置)
+            2.修改nginx.conf配置文件(include vhosts.d目录)
+            	#user nginx;
+				worker_processes 1;
+				error_log /var/log/nginx/error.log;
+				pid /run/nginx.pid;
+
+				# Load dynamic modules. See /usr/share/nginx/README.dynamic.
+				include /usr/share/nginx/modules/*.conf;
+
+				events {
+					worker_connections 1024;
+				}
+
+				http {
+					log_format  main 	'$remote_addr - $remote_user [$time_local] "$request" '
+										'$status $body_bytes_sent "$http_referer" '
+										'"$http_user_agent" "$http_x_forwarded_for"';
+
+					access_log  /var/log/nginx/access.log  main;
+
+				    sendfile            on;
+					tcp_nopush          on;
+					tcp_nodelay         on;
+					keepalive_timeout   65;
+					types_hash_max_size 2048;
+
+					include             /etc/nginx/mime.types;
+					default_type        application/octet-stream;
+
+					# Load modular configuration files from the /etc/nginx/conf.d directory.
+					# See http://nginx.org/en/docs/ngx_core_module.html#include
+					# for more information.
+					include /etc/nginx/conf.d/*.conf;
+
+					# all real virtual machine，下面这一行引入vhosts.d目录下的所有站点配置
+					include vhosts.d/*.conf;
+				}
+                 
+            3.在vhosts.d目录下添加站点配置文件（eg : www.php5.net）
+				 	server {
+						listen 80;
+						server_name www.php5.net;
+
+						access_log logs/www_php5_net_access.log main;
+						error_log logs/www_php5_net_error.log;
+
+						location / {
+							root /data/code/php/vm/php5/;
+							try_files $uri $uri/ /index.php?$args;
+							index index.html index.php;
+						}
+
+						location ~ \.php$ {
+							fastcgi_pass 127.0.0.1:9000;
+						fastcgi_index index.php;
+						fastcgi_param SCRIPT_FILENAME /data/code/php/vm/php5/$fastcgi_script_name;
+						include fastcgi_params;
+						}
+					}
+            
+            
+     
+	php71(确保已经安装了相应的依赖包)
+		新建目录/usr/local/php/php71
+		0.sudo ./buildconf --force (为了防止出现错误 ： cp:cannot stat 'sapi/cli/php.1': No such file or directory)
+		1.执行configure
+			sudo ./configure --prefix=/usr/local/php/php71 --datadir=/usr/local/php/php71/doc --mandir=/usr/local/php/php71/man --with-config-file-path=/usr/local/php/php71/etc --with-mcrypt --with-mhash --with-openssl --with-mysqli=shared,mysqlnd --with-pdo-mysql=shared,mysqlnd --with-gd --with-zlib --enable-zip --disable-rpath --enable-shared --enable-bcmath --enable-shmop --enable-sysvsem --enable-mbstring --enable-ftp --enable-gd-native-ttf --enable-pcntl --enable-sockets --with-xmlrpc --enable-soap --without-pear --with-gettext --with-curl --with-jpeg-dir --with-freetype-dir --enable-fpm --enable-fast-install --disable-fileinfo 
+        2.sudo make (sudo make clean);编译完成后可以执行测试 make test
+        3.sudo make install
+        4.配置php
+            1.cp php.ini-production /usr/local/php/php71/etc/php.ini
+            2.修改php扩展目录所在位置
+                extension_dir="/usr/local/php/php71/lib/php/extensions/no_debug_non_zts_20160303"
+            3.修改时区
+                date.timezone=PRC
+
+        5.php-fpm配置（）
+            cp /usr/local/php/php71/etc/php-fpm.conf.default /usr/local/php/php71/etc/php-fpm.conf
+                pid=run/php-fpm.pid
+                error_log=log/php-fpm.log
+				
+			cp /usr/local/php/php71/etc/php-fpm.d/www.conf.default /usr/local/php/php71/etc/php-fpm.d/www.conf
+				listen = 127.0.0.1:9001(php54占用了9000端口)
+
+        6.nginx相应配置（nginx.conf）
+        	  1.在nginx.conf所在的目录下添加目录‘vhosts.d’(用于存放各个站点配置)
+            2.修改nginx.conf配置文件(include vhosts.d目录)
+            	#user nginx;
+				worker_processes 1;
+				error_log /var/log/nginx/error.log;
+				pid /run/nginx.pid;
+
+				# Load dynamic modules. See /usr/share/nginx/README.dynamic.
+				include /usr/share/nginx/modules/*.conf;
+
+				events {
+					worker_connections 1024;
+				}
+
+				http {
+					log_format  main 	'$remote_addr - $remote_user [$time_local] "$request" '
+										'$status $body_bytes_sent "$http_referer" '
+										'"$http_user_agent" "$http_x_forwarded_for"';
+
+					access_log  /var/log/nginx/access.log  main;
+
+				    sendfile            on;
+					tcp_nopush          on;
+					tcp_nodelay         on;
+					keepalive_timeout   65;
+					types_hash_max_size 2048;
+
+					include             /etc/nginx/mime.types;
+					default_type        application/octet-stream;
+
+					# Load modular configuration files from the /etc/nginx/conf.d directory.
+					# See http://nginx.org/en/docs/ngx_core_module.html#include
+					# for more information.
+					include /etc/nginx/conf.d/*.conf;
+
+					# all real virtual machine，下面这一行引入vhosts.d目录下的所有站点配置
+					include vhosts.d/*.conf;
+				}
+                 
+            3.在vhosts.d目录下添加站点配置文件（eg : www.php7.net）
+				 	server {
+						listen 80;
+						server_name www.php7.net;
+
+						access_log logs/www_php7_net_access.log main;
+						error_log logs/www_php7_net_error.log;
+
+						location / {
+							root /data/code/php/vm/php7/;
+							try_files $uri $uri/ /index.php?$args;
+							index index.html index.php;
+						}
+
+						location ~ \.php$ {
+							fastcgi_pass 127.0.0.1:9001;
+						fastcgi_index index.php;
+						fastcgi_param SCRIPT_FILENAME /data/code/php/vm/php7/$fastcgi_script_name;
+						include fastcgi_params;
+						}
+					}
+
+        启动和关闭php-fpm
+            1.启动 ： sudo /usr/local/php/php71/sbin/php-fpm
+            2.关闭 ： sudo kill -INT `cat /usr/local/php/php71/var/run/php-fpm.pid`
+                    
+php安装扩展
+    安装xdebug扩展
+        1.下载源码 ： sudo wget http://pecl.php.net/get/xdebug-2.3.3.tgz
+        2.解压 ： tar -xzvf xdebug-2.3.3.tgz
+        3.运行phpize命令 ： 
+            cd /opt/software/xdebug-2.3.3
+            /opt/software/php/bin/phpize
+
+            若报错 ： 
+                Cannot find autoconf. Please check your autoconf installation and the
+                $PHP_AUTOCONF environment variable. Then, rerun this script.
+
+            安装autoconf
+                sudo yum install autoconf
+
+            安装完成后重新运行phpize ： /opt/software/php/bin/phpize
+        4.编译安装XDebug
+            sudo ./configure --enable-xdebug --with-php-config=/opt/software/php/bin/php-config
+            sudo make && make install
+        5.配置 php.ini，追加以下内容
+            [XDebug]
+            zend_extension = "/opt/software/php/lib/php/extensions/no-debug-non-zts-20100525/xdebug.so"
+            xdebug.profiler_append = 0
+            xdebug.profiler_enable = 0
+            xdebug.profiler_enable_trigger = 0
+            xdebug.profiler_output_dir = "/opt/software/tmp/xdebug"
+            xdebug.profiler_output_name = "cachegrind.out.%t-%s"
+            xdebug.remote_enable = 1
+            xdebug.remote_handler = "dbgp"
+            xdebug.remote_host = "127.0.0.1"
+            xdebug.remote_port = 9001
+            xdebug.trace_output_dir = "/opt/software/tmp/xdebug"
+
+    安装amqp扩展
+
+    安装imagick扩展
+
+    安装memcached扩展
+
+    安装mongo扩展
+
+    安装reids扩展
+        1.下载，解压，进入源码目录
+        2.sudo /usr/local/php/php54/bin/phpize
+        3.sudo ./configure --enable-redis --with-php-config=/usr/local/php/php54/bin/php-config
+        4.sudo make && make install
+        5.修改自己的php.ini文件，然后添加redis扩展:vim .../php.ini 添加extension = redis.so
+        6.重启PHP
+
+
+
+
+
+
