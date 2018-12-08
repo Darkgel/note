@@ -365,6 +365,30 @@ php安装扩展
     安装amqp扩展
 
     安装imagick扩展
+        版本
+            ImageMagick 6.7.2-7 2016-05-09 Q16 (ImageMagick 6.7.2-7 2015-07-23 Q16)
+            Ghostscript 9.18 (2015-10-05) (GPL Ghostscript 9.18 (2015-10-05))
+            imagick module version => 3.1.2 (imagick module version => 3.3.0)
+            PHP 5.4.27
+
+        安装Ghostscript
+             ./configure  --prefix=/usr/local/ghostscript-9.18
+             sudo make >& LOG_make
+             sudo make install >& LOG_make_install
+
+        安装ImageMagick
+            sudo ./configure
+            sudo make >& LOG_make
+            sudo make install >& LOG_make_install
+
+        安装imagick扩展
+            1.下载，解压，进入源码目录
+            2.sudo /usr/local/php/php54/bin/phpize
+            3.sudo ./configure --with-php-config=/usr/local/php/php54/bin/php-config --with-imagick
+            4.sudo make
+            5.sudo make install > LOG_make_install
+            6.修改自己的php.ini文件，然后添加redis扩展:vim .../php.ini 添加extension=imagick.so
+            7.重启PHP
 
     安装memcached扩展
 
