@@ -58,13 +58,17 @@
             yum clean all
             yum makecache
 
+更新系统
+    sudo yum update
+    sudo yum upgrade
+
  安装增强功能（guest additions）
     1.安装kernel-devel和gcc ：sudo yum install -y "kernel-devel-$(uname -r)" gcc bzip2
     2.加载guest additions光盘
     3.mkdir /mnt/cdrom
     4.mount -t auto -r /dev/cdrom /mnt/cdrom
     5.cd /mnt/cdrom
-    6.sudo sh ./VBoxLinuxAdditions.run
+    6.sudo sh ./VBoxLinuxAdditions.run(若执行失败按照提示安装相应的依赖)
 
 添加共享文件夹
     1.配置vm的共享文件夹
