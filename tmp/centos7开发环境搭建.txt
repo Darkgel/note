@@ -354,13 +354,16 @@ php安装扩展
             xdebug.profiler_append = 0
             xdebug.profiler_enable = 0
             xdebug.profiler_enable_trigger = 0
-            xdebug.profiler_output_dir = "/opt/software/tmp/xdebug"
+            xdebug.profiler_output_dir = "/tmp/php54/xdebug"
             xdebug.profiler_output_name = "cachegrind.out.%t-%s"
             xdebug.remote_enable = 1
             xdebug.remote_handler = "dbgp"
-            xdebug.remote_host = "127.0.0.1"
-            xdebug.remote_port = 9001
-            xdebug.trace_output_dir = "/opt/software/tmp/xdebug"
+            xdebug.remote_host = "10.3.20.151"
+            xdebug.remote_port = 9010
+            xdebug.trace_output_dir = "/tmp/php54/xdebug"
+            xdebug.remote_autostart = 1
+            xdebug.default_enable = 1
+            ;xdebug.idekey=PHPSTORM
 
     安装amqp扩展
 
