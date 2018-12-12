@@ -69,12 +69,13 @@
     4.mount -t auto -r /dev/cdrom /mnt/cdrom
     5.cd /mnt/cdrom
     6.sudo sh ./VBoxLinuxAdditions.run(若执行失败按照提示安装相应的依赖)
+        若出现报错 ： could not find the X.Org or XFree86 Window System, skipping.
 
 添加共享文件夹
     1.配置vm的共享文件夹
     2.mount -t vboxsf shared_file（共享文件夹名） /data/php(挂载的目录)
     3.设置开机自动挂载 
-        1.在/opt/onbootscript/下添加开机启动脚本（mount.sh,具备可执行权限），包含以下命令
+        1.在/opt/onbootscript/(自己新建该目录)下添加开机启动脚本（mount.sh,具备可执行权限），包含以下命令
             mount -t vboxsf php /data/php
         2.在文件/etc/rc.local中（以root用户）追加 : /opt/onbootscript/mount.sh
         3.chmod +x /etc/rc.d/rc.local
