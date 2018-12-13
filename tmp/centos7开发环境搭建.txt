@@ -369,6 +369,8 @@ php安装扩展
             xdebug.default_enable = 1
             ;xdebug.idekey=PHPSTORM
 
+        6.新建目录“/tmp/php54/xdebug”并赋予相应的权限
+
     安装amqp扩展
 
     安装imagick扩展
@@ -398,6 +400,17 @@ php安装扩展
             7.重启PHP
 
     安装memcached扩展
+        编译安装 Memcached 扩展插件依赖的 libmemcached 库
+            1.下载，解压，进入源码目录(https://launchpad.net/libmemcached/+download)
+            2.sudo ./configure --prefix=/usr/local/libmemcached
+            3.make && make test && sudo make install
+
+        1.下载，解压，进入源码目录
+        2.sudo /usr/local/php/php54/bin/phpize
+        3.sudo ./configure --enable-memcached --with-php-config=/usr/local/php/php54/bin/php-config
+        4.sudo make && make install
+        5.修改自己的php.ini文件，然后添加redis扩展:vim .../php.ini 添加extension = memcached.so
+        6.重启PHP
 
     安装mongo扩展
 
