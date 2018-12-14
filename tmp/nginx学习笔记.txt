@@ -6,7 +6,7 @@
 	./configure --prefix=/usr/local/nginx-1.13.8 
 		然后创建一个链接/usr/local/nginx指向/usr/local/nginx-1.13.8
 		
-	开启http和http相关的功能
+	开启http和https相关的功能
 		./configure --user=www-data --group=www-data --with-http_ssl_module --with-http_realip_module
 	
 	开启所有的module
