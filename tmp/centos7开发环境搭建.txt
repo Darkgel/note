@@ -1,7 +1,9 @@
+相应blog : https://segmentfault.com/a/1190000017386868
+
 网络配置
     dns配置（默认使用网关？没有自己配置相应的dns也能使用）
     动态ip配置(nat或桥接)
-        进入/etc/sysconfig/network-scripts,找到网卡对应的配置文件（eg：ifcfg-ens33）,配置下面的内容
+        进入/etc/sysconfig/network-scripts,找到网卡对应的配置文件（eg：ifcfg-ens0s3）,配置下面的内容
             TYPE=Ethernet
             PROXY_MEHTOD=none
             BROWSER_ONLY=no
@@ -13,9 +15,9 @@
             IPV6_DEFROUTE=yes 
             IPV6_FAILURE_FATAL=no
             IPV6_ADDR_GEN_MODE=stable-privacy
-            NAME=ens33
+            NAME=ens0s3
             UUID=这个是mac？暂时不清楚
-            DEVICE=ens33
+            DEVICE=ens0s3
             ONBOOT=yes
 
     NAT + host-only网络配置
@@ -69,13 +71,14 @@
     4.mount -t auto -r /dev/cdrom /mnt/cdrom
     5.cd /mnt/cdrom
     6.sudo sh ./VBoxLinuxAdditions.run(若执行失败按照提示安装相应的依赖)
-        若出现报错 ： could not find the X.Org or XFree86 Window System, skipping.
+
+    若出现kernel-devel版本不符合要求的情况，可以到http://rpm.pbone.net下载相应的rpm包，然后安装（eg ： rpm -Uvh kernel-devel-3.10.0-514.el7.x86_64.rpm）
 
 添加共享文件夹
     1.配置vm的共享文件夹
     2.mount -t vboxsf shared_file（共享文件夹名） /data/php(挂载的目录)
     3.设置开机自动挂载 
-        1.在/opt/onbootscript/(自己新建该目录)下添加开机启动脚本（mount.sh,具备可执行权限），包含以下命令
+        1.在/opt/onbootscript/(自己新建该目录)下添加开机启动脚本（mount.sh,需具备可执行权限），包含以下命令
             mount -t vboxsf php /data/php
         2.在文件/etc/rc.local中（以root用户）追加 : /opt/onbootscript/mount.sh
         3.chmod +x /etc/rc.d/rc.local
@@ -97,7 +100,7 @@ Selinux设置
         3.make
         4.make install >& LOG_make_install
 
-    创建一个链接/usr/local/nginx指向/usr/local/nginx-1.xx.xx
+    创建一个软链接/usr/local/nginx指向/usr/local/nginx-1.xx.xx
         ln -s /usr/local/nginx-1.xx.xx /usr/local/nginx
 
     常用命令 ： 
@@ -141,8 +144,7 @@ Selinux设置
                 2.[Service]部分是服务的关键，是服务的一些具体运行参数的设置，这里Type=forking是后台运行的形式，PIDFile为存放PID的文件路径，ExecStart为服务的具体运行命令，ExecReload为重启命令，ExecStop为停止命令，PrivateTmp=True表示给服务分配独立的临时空间，注意：[Service]部分的启动、重启、停止命令全部要求使用绝对路径，使用相对路径则会报错！
                 3.[Install]部分是服务安装的相关设置，可设置为多用户的
 
-            服务脚本按照上面编写完成后，以754的权限保存在/usr/lib/systemd/system目录下
-            然后执行(修改或新增文件需要执行以下语句才能生效) systemctl daemon-reload 
+        4.服务脚本按照上面编写完成后，以754的权限保存在/usr/lib/systemd/system目录下，然后执行(修改或新增文件需要执行以下语句才能生效) systemctl daemon-reload 
 
 防火墙设置
     对外开放80端口 : firewall-cmd --zone=public --add-port=80/tcp --permanent
@@ -236,7 +238,7 @@ Selinux设置
                 error_log=log/php-fpm.log
 
         6.nginx相应配置（nginx.conf）
-        	  1.在nginx.conf所在的目录下添加目录‘vhosts.d’(用于存放各个站点配置)
+        	1.在nginx.conf所在的目录下添加目录‘vhosts.d’(用于存放各个站点配置)
             2.修改nginx.conf配置文件(include vhosts.d目录)
             	#user nginx;
 				worker_processes 1;
@@ -313,7 +315,7 @@ Selinux设置
             3.修改时区
                 date.timezone=PRC
 
-        5.php-fpm配置（）
+        5.php-fpm配置（php-fpm.conf）
             cp /usr/local/php/php71/etc/php-fpm.conf.default /usr/local/php/php71/etc/php-fpm.conf
                 pid=run/php-fpm.pid
                 error_log=log/php-fpm.log
@@ -385,7 +387,7 @@ Selinux设置
 
         启动和关闭php-fpm
             1.启动 ： sudo /usr/local/php/php71/sbin/php-fpm
-            2.关闭 ： sudo kill -INT `cat /usr/local/php/php71/var/run/php-fpm.pid`
+            2.关闭 ： sudo kill -INT `cat /usr/local/php/php71/var/run/php-fpm.pid
                     
 php安装扩展
     安装xdebug扩展
@@ -452,7 +454,7 @@ php安装扩展
             3.sudo ./configure --with-php-config=/usr/local/php/php54/bin/php-config --with-imagick
             4.sudo make
             5.sudo make install > LOG_make_install
-            6.修改自己的php.ini文件，然后添加redis扩展:vim .../php.ini 添加extension=imagick.so
+            6.修改自己的php.ini文件，然后添加magick扩展:vim .../php.ini 添加extension=imagick.so
             7.重启PHP
 
     安装memcached扩展
@@ -465,7 +467,7 @@ php安装扩展
         2.sudo /usr/local/php/php54/bin/phpize
         3.sudo ./configure --enable-memcached --with-php-config=/usr/local/php/php54/bin/php-config
         4.sudo make && make install
-        5.修改自己的php.ini文件，然后添加redis扩展:vim .../php.ini 添加extension = memcached.so
+        5.修改自己的php.ini文件，然后添加memcached扩展:vim .../php.ini 添加extension = memcached.so
         6.重启PHP
 
     安装mongo扩展
