@@ -1,0 +1,99 @@
+初始化
+npm install -g vue-cli
+vue init webpack my-project
+cd my-project
+npm install
+
+配置eslint(配置.eslintrc.js)
+npm run lint -- --fix
+
+配置使用scss
+npm install -D node-sass sass-loader
+
+添加normalize.css
+npm install --save normalize.css
+在main.js中引入：import 'normalize.css/normalize.css' // A modern alternative to CSS resets
+
+引入element
+    http://element-cn.eleme.io/#/zh-CN/component/quickstart
+
+    npm i element-ui -S
+    在main.js中引入
+        import ElementUI from 'element-ui'
+        import 'element-ui/lib/theme-chalk/index.css'
+        Vue.use(ElementUI)
+
+使用vuex
+    npm install --save vuex
+
+    在main.jsz中引入
+
+使用vue-router
+
+npm run dev
+
+
+
+
+
+
+使用vuex，vue-router
+
+整体布局
+    侧边栏:
+        递归菜单项的实现
+
+
+使用scss
+
+icon的使用
+
+
+功能（按照路由）
+    系统管理
+        用户管理
+            增加用户
+            删除用户
+            修改用户
+            查看用户
+        角色管理
+            增加角色
+            删除角色
+            修改角色
+            查看角色
+        权限管理（资源 + 操作）
+            增加权限
+            删除权限
+            修改权限
+            查看权限
+        日志管理
+            查看日志
+        授权管理
+            增加授权项
+            删除授权项
+            修改授权项
+            查看授权项
+
+    文章
+        Creation
+        List
+        Edit (不显示菜单)
+
+
+文章字段
+    id
+    title
+    author
+    updatedTime
+    createdTime
+    summary
+    contentMd
+    contentHtml
+    tags
+    status ： 0=>已删除, 1=>草稿, 2=>已发布， 
+
+todo
+    ！markdown生成html
+    ！发表文章
+    ！将文章存储到草稿
+    ！删除文章

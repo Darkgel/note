@@ -1,0 +1,9 @@
+创建项目
+  vue init webpcak-simple（可以有不同的模板， vue list）
+
+使用webpack template
+  npm install -g vue-cli
+  vue init webpack my-project
+  cd my-project
+  npm install
+  npm run dev
