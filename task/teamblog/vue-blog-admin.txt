@@ -84,8 +84,8 @@ icon的使用
     id
     title
     author
-    updatedTime
-    createdTime
+    updatedAt
+    createdAt
     summary
     contentMd
     contentHtml
