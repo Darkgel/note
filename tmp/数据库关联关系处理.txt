@@ -1,0 +1,319 @@
+注意：任何关联关系都是双向的
+实体间的三种基本关联关系： One To One, One To Many, Many To Many
+
+
+
+One To One
+    （任意a，对应一个b；任意b，对应一个a）
+    表设计：(以user为主表)
+        user表
+            id
+
+        phone表
+            id
+            user_id
+
+    class User extends Model
+    {
+        /**
+        * Get the phone record associated with the user.
+        */
+        public function phone()
+        {
+            return $this->hasOne('App\Phone');
+        }
+    }
+
+    class Phone extends Model
+    {
+        /**
+        * Get the user that owns the phone.
+        */
+        public function user()
+        {
+            return $this->belongsTo('App\User');
+        }
+    }
+
+    $user->phone 执行的sql ： 
+    $phone->user 执行的sql ：
+
+One To Many
+    （任意a，对应多个b；任意b，对应一个a）
+    表设计:（以post表为主）
+        post表
+            id
+        
+        comment表
+            id
+            post_id
+
+    class Post extends Model
+    {
+        /**
+        * Get the comments for the blog post.
+        */
+        public function comments()
+        {
+            return $this->hasMany('App\Comment');
+        }
+    }
+
+    class Comment extends Model
+    {
+        /**
+        * Get the post that owns the comment.
+        */
+        public function post()
+        {
+            return $this->belongsTo('App\Post');
+        }
+    }
+
+    $post->comments 执行的sql ： 
+    $comment->post 执行的sql ： 
+
+
+Many To Many
+    （任意a，对应多个b；任意b，对应多个a）
+    表设计：
+        user表：
+            id
+
+        role表
+            id：
+
+        role_user表
+            user_id
+            role_id
+
+    class User extends Model
+    {
+        /**
+        * The roles that belong to the user.
+        */
+        public function roles()
+        {
+            return $this->belongsToMany('App\Role');//中间关联表是role_user
+        }
+    }
+
+    class Role extends Model
+    {
+        /**
+        * The users that belong to the role.
+        */
+        public function users()
+        {
+            return $this->belongsToMany('App\User');//中间关联表是role_user
+        }
+    }
+
+Has Many Through
+    The "has-many-through" relationship provides a convenient shortcut for accessing distant relations via an intermediate relation。（间接关联）
+    表设计：  
+        country
+            id
+            name
+
+        user
+            id
+            country_id
+            name
+        
+        post 
+            id
+            user_id
+            title
+
+        class Country extends Model
+        {
+            /**
+            * Get all of the posts for the country.
+            */
+            public function posts()
+            {
+                return $this->hasManyThrough('App\Post', 'App\User');
+            }
+        }
+        $country->posts 执行的sql： 
+
+
+Polymorphic Relationships
+    A polymorphic relationship allows the target model to belong to more than one type of model using a single association.
+    （关联的目标可以是多种类型的model。eg： tag表对应的关联表可以是 product表，也可以是company表）
+
+One To One(Polymorphic)
+    表设计：   
+        post
+            id - integer
+            name - string
+
+        user
+            id - integer
+            name - string
+
+        image
+            id - integer
+            url - string
+            imageable_id - integer   //对应post id或 user id
+            imageable_type - string
+
+        class Image extends Model
+        {
+            /**
+            * Get all of the owning imageable models.
+            */
+            public function imageable()
+            {
+                return $this->morphTo();
+            }
+        }
+
+        class Post extends Model
+        {
+            /**
+            * Get the post's image.
+            */
+            public function image()
+            {
+                return $this->morphOne('App\Image', 'imageable');
+            }
+        }
+
+        class User extends Model
+        {
+            /**
+            * Get the user's image.
+            */
+            public function image()
+            {
+                return $this->morphOne('App\Image', 'imageable');
+            }
+        }
+
+        $post->image 执行的sql ： 
+        $user->image 执行的sql ：
+        $imageable = $image->imageable 执行的sql： 
+
+
+
+One To Many(Polymorphic)
+    表设计：   
+        posts
+            id - integer
+            title - string
+            body - text
+
+        videos
+            id - integer
+            title - string
+            url - string
+
+        comments
+            id - integer
+            body - text
+            commentable_id - integer
+            commentable_type - string
+
+    class Comment extends Model
+    {
+        /**
+        * Get all of the owning commentable models.
+        */
+        public function commentable()
+        {
+            return $this->morphTo();
+        }
+    }
+
+    class Post extends Model
+    {
+        /**
+        * Get all of the post's comments.
+        */
+        public function comments()
+        {
+            return $this->morphMany('App\Comment', 'commentable');
+        }
+    }
+
+    class Video extends Model
+    {
+        /**
+        * Get all of the video's comments.
+        */
+        public function comments()
+        {
+            return $this->morphMany('App\Comment', 'commentable');
+        }
+    }
+
+    $post->comments 执行的sql ： 
+    $video->comments 执行的sql ：
+    $comment->commentable 执行的sql ： 
+
+Many To Many(Polymorphic)
+    表设计
+        posts
+            id - integer
+            name - string
+
+        videos
+            id - integer
+            name - string
+
+        tags
+            id - integer
+            name - string
+
+        taggables
+            tag_id - integer
+            taggable_id - integer
+            taggable_type - string
+
+    class Post extends Model
+    {
+        /**
+        * Get all of the tags for the post.
+        */
+        public function tags()
+        {
+            return $this->morphToMany('App\Tag', 'taggable');
+        }
+    }
+
+    class Video extends Model
+    {
+        /**
+        * Get all of the tags for the video.
+        */
+        public function tags()
+        {
+            return $this->morphToMany('App\Tag', 'taggable');
+        }
+    }
+
+    class Tag extends Model
+    {
+        /**
+        * Get all of the posts that are assigned this tag.
+        */
+        public function posts()
+        {
+            return $this->morphedByMany('App\Post', 'taggable');
+        }
+
+        /**
+        * Get all of the videos that are assigned this tag.
+        */
+        public function videos()
+        {
+            return $this->morphedByMany('App\Video', 'taggable');
+        }
+    }
+
+    $post->tags 执行的sql ： 
+    $video->tags 执行的sql ：
+    $tag->videos 执行的sql ：
+    $tag->posts 执行的sql ：

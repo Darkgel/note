@@ -7,3 +7,35 @@
 dingo响应封装
 
 5.安装swagger
+    composer require darkaonline/l5-swagger
+    composer require zircote/swagger-php:~2.0
+
+    php artisan vendor:publish（选择L5Swagger\L5SwaggerServiceProvider这项）
+
+    配置.env
+        SWAGGER_VERSION=2.0
+        L5_SWAGGER_CONST_HOST=api.teamblog.me
+
+    生成文档： php71 artisan l5-swagger:generate
+
+6.数据库
+    建库： CREATE DATABASE IF NOT EXISTS dg_blog DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+    生成测试数据
+
+7.接口实现
+    article接口
+        1.detail
+        2.save
+        4.delete
+        5.index
+
+    tag接口
+        1.detail
+        2.create
+        3.update
+        4.delete
+        5.index
+
+        put方法的参数问题
+

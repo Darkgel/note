@@ -90,10 +90,10 @@ icon的使用
     contentMd
     contentHtml
     tags
-    status ： 0=>已删除, 1=>草稿, 2=>已发布， 
+    status ： 0=>草稿, 1=>已发布， 
 
 todo
-    ！markdown生成html
+    ！markdown 生成 html
     ！发表文章
     ！将文章存储到草稿
     ！删除文章
