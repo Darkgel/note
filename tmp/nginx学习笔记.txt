@@ -1,3 +1,5 @@
+《Nginx HTTP Server》笔记
+
 浏览器缓存
 	expires [time|epoch|max|off]		===》 HTTP应答中的“Expires”和“Cache-Control” 
 	
@@ -69,6 +71,499 @@ nginx配置
 	
 	各个模块的配置包含在相应的块中（大括号）
 	
+性能测试
+	工具
+		1.httterf
+		2.autobench
+		3.openwebload
+
+upgrade nginx
+	优雅升级（不会丢失请求）
+		1.Replace the old Nginx binary (by default, /usr/local/nginx/sbin/nginx) with the new one.
+		2.Find the pid of the Nginx master process, for example, with ps x | grep nginx | grep master or by looking at the value found in the .pid file.
+		3.Send a USR2 (12) signal to the master process: kill -USR2 1234, replacing 1234 with the pid found in step 2. This will initiate the upgrade by renaming the old .pid file and running the new binary.
+		4.Send a WINCH (28) signal to the old master process: kill -WINCH 1234, replacing 1234 with the pid found in step 2. This will engage a graceful shutdown of the old worker processes.
+		5.Make sure that all of the old worker processes are terminated, and then send a QUIT signal to the old master process: kill -QUIT 1234, replacing 1234 with the pid found in step 2.
 		
+
+HTTP core module配置
+	三个主要的block : http, server, location
+
+	socket and host configuration
+		listen : 
+			Specifies the IP address and/or the port to be used by the listening socket that will serve the website
+			context ： server
+			Syntax: listen [address][:port] [additional options];
+
+		server_name:
+			Assigns one or more hostnames to the server block
+			Context: server
+			Syntax: server_name hostname1 [hostname2...];
+
+		server_name_in_redirect
+			This directive applies to internal redirects
+			Context: http, server, and location
+			Syntax: on or off
+
+	Paths and documents
+		root : 
+			Defines the document root, containing the files you wish to serve to your visitors.
+			Context: http, server, location, and if. Variables are accepted.
+			Syntax: Directory path
+
+		alias : 
+			alias is a directive that you place in a location block only.It assigns a different path for Nginx to retrieve documents for a specific request
+			Context: location. Variables are accepted.
+			Syntax: Directory (do not forget the trailing /) or file path
+
+		error_page : 
+			Allows you to affect URIs to HTTP response code and optionally to replace the code with another.
+			Context: http, server, location, and if. Variables are accepted.
+			Syntax: error_page code1 [code2...] [=replacement code] [=@block | URI]
+
+		if_modified_since :
+			Defines how Nginx handles the If-Modified-Since HTTP header.
+			Context: http, server, and location
+			Syntax: if_modified_since off | exact | before
+
+		index :
+			Defines the default page that Nginx will serve if no filename is specified in the request (in other words, the index page).
+			Context: http, server, location. Variables are accepted.
+			Syntax: index file1 [file2...] [absolute_file];
+
+		try_files :
+			Attempts to serve the specified files (arguments 1 to N-1); if none of these files exist, it jumps to the respective named location block (last argument) or serves the specified URI.
+			Context: server, location. Variables are accepted.
+			Syntax: Multiple file paths, followed by a named location block or a URI
+
+	Client requests
+		keepalive_requests :
+			Maximum number of requests served over a single keep-alive connection.
+			Context: http, server, and location
+			Syntax: Numeric value
+
+		keepalive_timeout :
+			This directive defines the number of seconds the server will wait before closing a keep-alive connection.
+			Context: http, server, and location
+			Syntax: keepalive_timeout time1 [time2];
+
+	MIME types (The MIME type is then sent as the value of the Content-Type HTTP header in the response)
+		types :
+			This directive allows you to establish correlations between MIME types and file extensions.
+			Context: http, server, and location
+
+			types { 
+				mimetype1  extension1; 
+				mimetype2  extension2 [extension3...]; 
+				[...] 
+			}
+
+		default_type
+			Defines the default MIME type
+			Context: http, server, and location
+			Syntax: MIME type
+
+	Limits and restrictions
+		limit_except :
+			This directive allows you to prevent the use of all HTTP methods, except the ones that you explicitly allow
+			Context: location
+
+			location /admin/ { 
+				limit_except GET { 
+					allow 192.168.1.0/24; 
+					deny all; 
+				} 
+			}
+
+			limit_except METHOD1 [METHOD2...] { 
+				allow | deny | auth_basic | auth_basic_user_file | proxy_pass | perl; 
+			}
 		
+		limit_rate :
+			Allows you to limit the transfer rate of individual client connections
+			Context: http, server, location, and if
+			limit_rate 500k;
+
+	File processing and caching
+
+	Other directives
+		log_not_found :
+			Enables or disables logging of 404 Not Found HTTP errors
+			Context: http, server, and location
+			Syntax: on or off
+
+	Module variables
+		Request headers :
+			$http_host : Value of the Host HTTP header, a string indicating the hostname that the client is trying to reach.
+			$http_user_agent : Value of the User-Agent HTTP header, a string indicating the web browser of the client.
+			$http_referer : Value of the Referer HTTP header, a string indicating the URL of the previous page from which the client comes.
+			$http_via : Value of the Via HTTP header, which informs us about possible proxies used by the client.
+			$http_x_forwarded_for ： Value of the X-Forwarded-For HTTP header, which shows the actual IP address of the client if the client is behind a proxy.
+			$http_cookie ： Value of the Cookie HTTP header, which contains the cookie data sent by the client.
+			$http_... ： Additional headers sent by the client can be retrieved using $http_ followed by the header name in lowercase and with dashes (-) replaced by underscores (_).
 		
+		Response headers（通常在记录日志的时候用到） ：
+			$sent_http_content_type ： Value of the Content-Type HTTP header, indicating the MIME type of the resource being transmitted.
+			$sent_http_content_length ： Value of the Content-Length HTTP header informing the client of the response body length.
+			$sent_http_location ： Value of the Location HTTP header, which indicates that the location of the desired resource is different from the one specified in the original request.
+			...
+
+		Nginx generated
+			$arg_XXX ： Allows you to access the query string (GET parameters), where XXX is the name of the parameter you want to utilize.
+			$args ： All of the arguments of the query string combined together.
+			$binary_remote_addr ： IP address of the client as binary data (4 bytes).
+			$body_bytes_sent ： Amount of bytes sent in the body of the response (does not include response headers).
+			$bytes_sent ： Amount of bytes sent to the client.
+			$connection ： Serial number identifying a connection.
+			$connection_requests ： Amount of requests already served by the current connection.
+			$content_length ： Equates to the Content-Length HTTP header.
+			$content_type ： Equates to the Content-Type HTTP header.
+			$cookie_XXX ： Allows you to access cookie data where XXX is the name of the parameter you want to utilize.
+			$document_root ： Returns the value of the root directive for the current request.
+			$document_uri ： Returns the current URI of the request. It may differ from the original request URI if internal redirects were performed. It is identical to the $uri variable.
+			$host ： This variable equates to the host HTTP header of the request. Nginx itself gives this variable a value for cases where the host header is not provided in the original request.
+			$hostname ： Returns the system hostname of the server computer.
+			$https ： Set to on for HTTPS connections, empty otherwise.
+			$is_args ： If the $args variable is defined, $is_args equates to ?. If $args is empty, $is_args is empty as well. You may use this variable for constructing an URI that optionally comes with a query string, such as index.php$is_args$args. If there is any query string argument in the request, $is_args is set to ?, making this a valid URI.
+			$limit_rate ： Returns the per-connection transfer rate limit, as defined by the limit_rate directive. You are allowed to edit this variable by using set (directive from the Rewrite module): set $limit_rate 128k;.
+			$msec ： Returns the current time (in seconds + milliseconds).
+			$nginx_version ： Returns the version of Nginx you are running.
+			$pid ： Returns the Nginx process identifier.
+			$pipe ： If the current request is pipelined, this variable is set to p; otherwise the value is [.]".
+			$proxy_protocol_addr ： If the proxy_protocol parameter is enabled on the listen directive, this variable will contain the client address.
+			$query_string ： Identical to $args.
+			$remote_addr ： Returns the IP address of the client.
+			$remote_port ： Returns the port of the client socket.
+			$remote_user ： Returns the client username if they used authentication.
+			$realpath_root ： Returns the document root in the client request, with symbolic links resolved into the actual path.
+			$request_body ： Returns the body of the client request, or - if the body is empty.
+			$request_body_file ： If the request body was saved (see the client_body_in_file_only directive), this variable indicates the path of the temporary file.
+			$request_completion ： Returns OK if the request is completed, an empty string otherwise.
+			$request_filename : Returns the full filename served in the current request.
+			$request_length : Returns the total length of the client request.
+			$request_method : Indicates the HTTP method used in the request, such as GET or POST.
+			$request_time : Returns the amount of time elapsed since the first byte was read from the client (seconds + milliseconds value).
+			$request_id : Unique request identifier generated from 16 random bytes, in hexadecimal.
+			$request_uri : Corresponds to the original URI of the request; remains unmodified all through the process (unlike $document_uri/$uri).
+			$scheme : Returns either http or https, depending on the request.
+			$server_addr : Returns the IP address of the server. Be careful, as each use of the variable requires a system call, which could potentially affect overall performance in the case of high-traffic setups.
+			$server_name : Indicates the value of the server_name directive that was used while processing the request.
+			$server_port : Indicates the port of the server socket that received the request data.
+			$server_protocol ： Returns the protocol and version, usually HTTP/1.0 or HTTP/1.1.
+			$status ： Returns the response status code.
+			$tcpinfo_rtt,$tcpinfo_rttvar,$tcpinfo_snd_cwnd,$tcpinfo_rcv_space ： If your operating system supports the TCP_INFO socket option, these variables will be populated with information on the current client TCP connection.
+			$time_iso8601,$time_local ： Provides the current time respectively in ISO 8601 and local formats for use with the access_log directive.
+			$uri ： Identical to $document_uri.
+
+
+Nginx匹配 location的优先顺序
+	1.location blocks with the = modifier: If the specified string exactly matches the requested URI, Nginx retains the location block
+	2.location blocks with no modifier: If the specified string exactly matches the requested URI, Nginx retains the location block
+	3.location blocks with the ^~ modifier: If the specified string matches the beginning of the requested URI, Nginx retains the location block
+	4.location blocks with the ~ or ~* modifier: If the regular expression matches the requested URI, Nginx retains the location block
+	5.location blocks with no modifier: If the specified string matches the beginning of the requested URI, Nginx retains the location block
+
+
+Rewrite module
+	URL rewriting is a key element to Search Engine Optimization (SEO).
+
+	location [ = | ~ | ~* | ^~ ] uri { ... }
+		= 表示精确匹配。只有请求的url路径与后面的字符串完全相等时，才会命中。
+		~ 表示该规则是使用正则定义的，区分大小写。
+		~* 表示该规则是使用正则定义的，不区分大小写。
+		^~ 表示如果该符号后面的字符是最佳匹配，采用该规则，不再进行后续的查找。
+
+	可能产生internal request的指令： error_page, index, rewrite, try_files, add_before_body, and add_after_body (from the addition module), the include SSI command, and more.
+
+
+SSL and security
+	ssl
+		Enables HTTPS for the specified server. This directive is the equivalent of listen 443 ssl, or listen port ssl, more generally.
+		Context: http, server
+		Syntax: on or off
+
+	ssl_certificate
+		Sets the path of the PEM certificate. This directive can be specified multiple times to load certificates of different types.
+		Context: http, server
+		Syntax: File path
+
+	ssl_certificate_key
+		Sets the path of the PEM secret key file.This directive can be specified multiple times to load certificates of different types.
+		Context: http, server
+		Syntax: File path
+
+	ssl_client_certificate
+		Sets the path of the client PEM certificate.
+		Context: http, server
+		Syntax: File path
+
+	ssl_crl
+		Orders Nginx to load a CRL (Certificate Revocation List) file, which allows checking the revocation status of certificates.
+		Context: http, server
+
+	ssl_dhparam
+		Sets the path of the Diffie-Hellman parameters file.
+		Context: http, server
+		Syntax: File path.
+
+	ssl_protocols
+		Specifies the protocol that should be employed.
+		Context: http, server
+		Syntax: ssl_protocols [SSLv2] [SSLv3] [TLSv1] [TLSv1.1] [TLSv1.2] [TLSv1.3];
+		Default: ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;
+
+	ssl_ciphers
+		Specifies the ciphers that should be employed. The list of available ciphers can be obtained by running the following command from the shell: openssl ciphers.
+		Context: http, server
+		Syntax: ssl_ciphers cipher1[:cipher2...];
+		Default: ssl_ciphers ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+
+	ssl_prefer_server_ciphers
+		Specifies whether server ciphers should be preferred over client ciphers.
+		Context: http, server
+		Syntax: on or off
+		Default: off
+
+	ssl_verify_client
+		Enables verifying certificates transmitted by the client and sets the result in the $ssl_client_verify. The optional_no_ca value verifies the certificate if there is one, but does not require it to be signed by a trusted CA certificate.
+		Context: http, server
+		Syntax: on | off | optional | optional_no_ca
+
+	ssl_verify_depth
+		Specifies the verification depth of the client certificate chain.
+		Context: http, server
+		Syntax: Numeric value
+
+	ssl_session_cache
+		Configures the cache for SSL sessions.
+		Context: http, server
+		Syntax: off, none, builtin:size or shared:name:size
+
+	ssl_session_timeout
+		When SSL sessions are enabled, this directive defines the timeout for using session data.
+		Context: http, server
+		Syntax: Time value
+		Default: 5 minutes
+
+	ssl_password_phrase
+		Specifies a file containing passphrases for secret keys. Each passphrase is specified on a separate line; they are tried one after the other when loading a certificate key.
+		Context: http, server
+		Syntax: Filename
+
+	ssl_buffer_size
+		Specifies buffer size when serving requests over SSL.
+		Context: http, server
+		Syntax: Size value
+
+	ssl_session_tickets
+		Enables TLS session tickets, allowing for the client to reconnect faster, skipping renegotiation.
+		Context: http, server
+		Syntax: on or off
+
+	ssl_session_ticket_key
+		Sets the path of the key file used to encrypt and decrypt TLS session tickets. By default, a random value is generated.
+		Context: http, server
+		Syntax: file name
+
+	ssl_trusted_certificate
+		Sets the path of a trusted certificate file (PEM format), used to validate authenticity of client certificates, as well as stapling of OCSP responses.
+		Context: http, server
+		Syntax: Filename
+
+	Additionally, the following variables are made available:
+		$ssl_cipher: Indicates the cipher used for the current request
+		$ssl_ciphers: Returns list of client supported ciphers
+		$ssl_curves: Returns list of client supported curves
+		$ssl_client_serial: Indicates the serial number of the client certificate
+		$ssl_client_s_dn and $ssl_client_i_dn: Indicates the value of the subject and issuer DN of the client certificate
+		$ssl_protocol: Indicates the protocol at use for the current request
+		$ssl_client_cert and $ssl_client_raw_cert: Returns client certificate data, which is raw data for the second variable
+		$ssl_client_verify: Set to SUCCESS if the client certificate was successfully verified
+		$ssl_session_id: Allows you to retrieve the ID of an SSL session
+		$ssl_client_escaped_cert: Returns the client certificate in PEM format
+	
+
+Setting up an SSL certificate
+	准备工作 ：
+		1. A .key file generated with the following command: openssl genrsa -out secure.website.com.key 1024 (other encryption levels work, too).
+		2. A .csr file generated with the following command: openssl req -new -key secure.website.com.key -out secure.website.com.csr.
+		3. Your website certificate file, as issued by the certificate authority, for example, secure.website.com.crt. (In order to obtain a certificate from the CA, you will need to provide your .csr file).
+		4. The CA certificate file as issued by the CA (for example, gd_bundle.crt, if you purchased your certificate from https://godaddy.com/).
+	
+	1. 合并自己的站点证书和CA证书
+		cat secure.website.com.crt gd_bundle.crt > combined.crt
+	2. 配置站点
+		server { 
+			listen 443; 
+			server_name secure.website.com; 
+			ssl on; 
+			ssl_certificate /path/to/combined.crt; 
+			ssl_certificate_key /path/to/secure.website.com.key; 
+			[...] 
+		}
+
+
+integrate a third-party module into your Nginx build
+	1.Download the .tar.gz archive associated with the module you wish to download.
+	2.Extract the archive with the following command:
+		tar xzf module.tar.gz
+	3.Configure your Nginx build with the following command:
+		./configure --add-module=/module/source/path [...]
+
+	Once you finished building and installing the application, the module is available just like a regular Nginx module, with its directives and variables.
+
+
+web server的发展
+	1. client请求静态文件
+		1.client请求一个文件
+		2.server直接返回静态文件
+	2.client请求动态内容(CGI技术)
+		1.client请求动态页面
+		2.web server预处理请求（URL rewriting， internal redirects等）
+		3.向后端处理程序转发请求，通过CGI进行沟通
+		4.接受后端处理程序的响应，通过CGI进行沟通
+		5.web server post-process响应（gzip compression， character encoding等）
+		6.client接受 web server的响应
+
+Common Gateway Interface
+	In order for the web server to communicate with that application, the CGI protocol was invented in the early 1990s.
+
+	The Common Gateway Interface (CGI) allows an HTTP server and a CGI script to share responsibility for responding to client requests. [...]. The server is responsible for managing connection, data transfer, transport, and network issues related to the client request, whereas the CGI script handles the application issues such as data access and document processing.
+
+	Common Gateway Interface (CGI) is the protocol that describes the way information is exchanged between the web server (Nginx) and the gateway application (PHP, Python, and so on). In practice, when the web server receives a request that should be forwarded to the gateway application, it simply executes the command corresponding to the desired application, for example, /usr/bin/php. Details about the client request (such as the User Agent and other request information) are passed either as command-line arguments or in environment variables, while actual data from POST or PUT requests is transmitted through the standard input. The invoked application then writes the processed document contents to the standard output, which is recaptured by the web server.
+
+	While this technology seems simple and efficient enough at first sight, it comes with a few major drawbacks, which are discussed as follows:
+		1.A unique process is spawned for each request. Memory and other context information are lost from one request to another.
+		2.Starting up a process can be resource-consuming for the system. Massive numbers of simultaneous requests (each spawning a process) could quickly clutter a server.
+
+Fast Common Gateway Interface (FastCGI)
+	Although the purpose remains the same, FastCGI offers significant improvements over CGI with the establishment of the following principles:
+		1.Instead of spawning a new process for each request, FastCGI employs persistent processes that come with the ability to handle multiple requests.
+		2.The web server and the gateway application communicate with the use of sockets such as TCP or POSIX local IPC sockets. Consequently, the web server and backend processes may be located on two different computers on a network.
+		3.The web server forwards the client request to the gateway and receives the response within a single connection. Additional requests may also follow without needing to create additional connections. Note that, on most web servers, including Nginx and Apache, the implementation of FastCGI does not (or at least not fully) support multiplexing.
+		4.Since FastCGI is a socket-based protocol, it can be implemented on any platform with any programming language.
+
+
+FastCGI module
+	fastcgi_pass
+		This directive specifies that the request should be passed to the FastCGI server, by indicating its location:
+		For TCP sockets, the syntax is: fastcgi_pass hostname:port;
+		For Unix domain sockets, the syntax is: fastcgi_pass unix:/path/to/fastcgi.socket;
+		Context: location, if
+
+	fastcgi_param
+		This directive allows you to configure the request passed to FastCGI. Two parameters are strictly required for all FastCGI requests: SCRIPT_FILENAME and QUERY_STRING.
+		Context: http, server, location
+
+	fastcgi_bind
+		This directive binds the socket to a local IP address, allowing you to specify the network interface you want to use for FastCGI communications.
+		Context: http, server, location
+		Syntax: fastcgi_bind IP_address[:port] [transparent] | off;
+
+	fastcgi_pass_header
+		This directive specifies the additional headers that should be passed to the FastCGI server
+		Context: http, server, location
+		Syntax: fastcgi_pass_header headername;
+
+	fastcgi_hide_header
+		This directive specifies the headers that should be hidden from the FastCGI server (headers that Nginx does not forward).
+		Context: http, server, location
+		Syntax: fastcgi_hide_header headername;
+
+	fastcgi_index
+		The FastCGI server does not support automatic directory indexes. If the requested URI ends with a /, Nginx appends the value fastcgi_index.
+		Context: http, server, location
+		Syntax: fastcgi_index filename;
+
+	fastcgi_ignore_client_abort
+		This directive lets you define what happens if the client aborts their request to the web server. If the directive is turned on, Nginx ignores the abort request and finishes processing the request. If it's turned off, Nginx does not ignore the abort request. It interrupts the request treatment and aborts related communication with the FastCGI server.
+		Syntax: on or off
+
+	fastcgi_intercept_errors
+		This directive defines whether or not Nginx should process errors returned by the gateway or directly return error pages to the client. Error processing is done via the error_page directive of Nginx.
+
+
+	fastcgi_read_timeout
+		This directive defines the timeout for the response from the FastCGI application. If Nginx does not receive the response after this period, the 504 Gateway Timeout HTTP error is returned.
+
+	fastcgi_connect_timeout
+		This directive defines the backend server connection timeout. This is different than the read/send timeout. If Nginx is already connected to the backend server, the fastcgi_connect_timeout is not applicable.
+
+	fastcgi_send_timeout
+		This is the timeout for sending data to the backend server. The timeout isn't applied to the entire response delay but rather between two write operations.
+
+	fastcgi_split_path_info
+		A directive particularly useful for URLs of the following form: http://website.com/page.php/param1/param2/，The directive splits the path information according to the specified regular expression:
+			fastcgi_split_path_info   ^(.+\.php)(.*)$;
+		This affects two variables:
+			1.$fastcgi_script_name: The filename of the actual script to be executed, for example; page.php
+			2.$fastcgi_path_info: The part of the URL that is after the script name, example; /param1/param2/)
+
+	fastcgi_store
+		This directive enables a simple cache store where responses from the FastCGI application are stored as files on the storage device. When the same URI is requested again, the document is directly served from the cache store instead of forwarding the request to the FastCGI application.
+		Syntax: on or off
+
+	fastcgi_store_access
+		This directive defines the access permissions applied to the files created in the context of the cache store.
+
+	fastcgi_temp_path
+		This directive sets the path of temporary and cache store files.
+
+	fastcgi_max_temp_file_size
+		Set this directive to 0 to disable the use of temporary files for FastCGI requests or to specify a maximum file size.
+
+	fastcgi_temp_file_write_size
+		This directive sets the write buffer size when saving temporary files to the storage device.
+
+	fastcgi_send_lowat
+		This option allows you to make use of the SO_SNDLOWAT flag for TCP sockets under FreeBSD only. This value defines the minimum number of bytes in the buffer for output operations.
+
+	fastcgi_pass_request_body，fastcgi_pass_request_headers
+		This directive defines whether or not, respectively, the request body and extra request headers should be passed on to the backend server.
+
+	fastcgi_ignore_headers
+		This directive prevents Nginx from processing one or more of the following headers from the backend server response:
+			1.X-Accel-Redirect
+			2.X-Accel-Expires
+			3.Expires
+			4.Cache-Control
+			5.X-Accel-Limit-Rate
+			6.X-Accel-Buffering
+			7.X-Accel-Charset
+
+	fastcgi_next_upstream
+		When fastcgi_pass is connected to an upstream block, this directive defines cases where requests should be abandoned and re-sent to the next upstream server of the block. The directive accepts a combination of values among the following:
+			1.error: An error occurred while communicating or attempting to communicate with the server
+			2.timeout: A timeout occured during transfers or connection attempts
+			3.invalid_header: The backend server returned an empty or invalid response
+			4.http_500,  http_503,  http_403,  http_404 ,  http_429: If such HTTP errors occur, Nginx switches to the next upstream server
+			5.non-idempotent: Allows retrying non-idempotent requests (LOCK, POST, PATCH)
+			6.off: Forbids using the next upstream server
+
+
+	....
+
+
+
+PHP-FPM(FastCGI Process Manager)
+	In practice, PHP-FPM introduces a number of possibilities such as:
+		1.Automatically daemonizing PHP (turning it into a background process)
+		2.Executing scripts in a chrooted environment
+		3.Improved logging, IP address restrictions, pool separation, and many more
+
+
+
+Nginx proxy module
+	proxy_pass
+		Specifies that the request should be forwarded to the backend server by indicating its location:
+			For regular HTTP forwarding, the syntax is proxy_pass http://hostname:port;
+			For Unix domain sockets, the syntax is proxy_pass http://unix:/path/to/file.socket;
+			You may also refer to upstream blocks proxy_pass http://myblock;
+			Instead of http://, you can use https:// for secure traffic. Additional URI parts as well as the use of variables are allowed.
+	
+	proxy_method
+		Allows the overriding of the HTTP method of the request to be forwarded to the backend server. If you specify POST, for example, all requests forwarded to the backend server will be POST requests.
+		Syntax: proxy_method method;
+
+	proxy_hide_header
+		By default, as Nginx prepares the response received from the backend server to be forwarded back to the client, it ignores some of the headers, such as Date, Server, X-Pad, and X-Accel-*. With this directive, you can specify an additional header line to be hidden from the client. You may insert this directive multiple times with one header name for each.
