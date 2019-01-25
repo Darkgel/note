@@ -567,3 +567,139 @@ Nginx proxy module
 
 	proxy_hide_header
 		By default, as Nginx prepares the response received from the backend server to be forwarded back to the client, it ignores some of the headers, such as Date, Server, X-Pad, and X-Accel-*. With this directive, you can specify an additional header line to be hidden from the client. You may insert this directive multiple times with one header name for each.
+
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	client_max_body_size 10m;
+	client_body_buffer_size 128k;
+	proxy_connect_timeout 15;//单位为秒
+	proxy_send_timeout 15;
+	proxy_read_timeout 15;
+
+
+
+Forwarding the correct IP address
+
+
+
+
+Introduction to Load Balancing and Optimization
+	load balancing
+		To put it simply, the concept of load balancing consists of distributing the workload (CPU load, hard disk load, or other forms) across several servers, in a manner that is completely transparent to your visitors.
+
+	Session affinity
+		在使用负载均衡的情况下，数据无法在多台服务器之间共享（解决思路：将同一个session的请求发到同一个服务器）
+
+
+	实现
+		1.DNS load balancing
+			存在的问题：
+				1.What if the IP address selected by a visitor's operating system points to a server that is temporarily unavailable?
+				2.What if your architecture is made of several types of servers, some of which are capable of handling more requests than others?
+				3.What if a visitor connects to a particular server and logs in to their user account, only to get switched to another server 10 minutes later, losing their session data?（Session affinity）
+
+	相关的nginx模块
+		upstream module
+			round-robin ： 
+				http { 
+					upstream MyUpstream { 
+						server 10.0.0.201; 
+						server 10.0.0.202; 
+						server 10.0.0.203; 
+				} 
+				[...] 
+				}
+
+				server { 
+					server_name example.com; 
+					listen 80; 
+					root /home/example.com/www; 
+					# Proxy all requests to the MyUpstream server group 
+					proxy_pass http://MyUpstream;  
+					[...] 
+				}
+
+			不同机器不同权重：
+				upstream MyUpstream { 
+					server 10.0.0.201 weight=3; 
+					server 10.0.0.202 weight=2; 
+					server 10.0.0.203; //默认weight为1
+				}
+
+			当某个机器故障时（响应超时），会将请求发到下一个机器，详细配置：
+				1.fail_timeout=N, where N is the number of seconds before a request is considered to have failed.
+				2.max_fails=N, where N is the number of attempts that should be performed on a server before Nginx gives up and switches to the next server. By default, Nginx only tries once. If all servers become unresponsive, Nginx will wait for fail_timeout to expire before resetting all server fail counts and trying again.
+				3.max_conns=N, where N is the number of maximum concurrent connections that can be sent to that server. By default, Nginx will not limit concurrent connections.
+				4.backup marks the server as backup server, instructing Nginx to use it only in the case of failure from another server (it is not used otherwise).
+				5.down marks the server as permanently unavailable, instructing Nginx not to use it anymore.
+
+			解决Session affinity的问题
+				1.使用ip_hash
+					this directive instructs Nginx to calculate a hash from the first 3 bytes of the client IPv4 address (or the full IPv6 address), and, based on that hash, keep the client assigned to a particular server. As long as the client IP address remains the same, Nginx will always forward requests to the same server in the upstream group
+					upstream { 
+						server 10.0.0.201 weight=3; 
+						server 10.0.0.202 weight=2; 
+						server 10.0.0.203; 
+						ip_hash; 
+					}
+
+				2.使用自定的hash
+					upstream { 
+						server 10.0.0.201; 
+						server 10.0.0.202; 
+						hash $cookie_username; 
+					}
+
+
+	Using Nginx as a TCP load balancer
+		相关模块 stream ： --with-stream
+
+		An example of MySQL load balancing
+			stream { 
+				upstream MyGroup { 
+					# use IP address-based distribution 
+					hash $remote_addr; 
+					server 10.0.0.201 weight=2; 
+					server 10.0.0.202; 
+					server 10.0.0.203 backup; # use as backup only 
+				} 
+				server { 
+					# listen on the default MySQL port 
+					listen 3306;  
+					proxy_pass MyGroup; # forward requests to upstream 
+				} 
+			}
+
+
+	Thread pools and IO mechanisms
+		thread pools ： 
+			The basic principle behind this solution is that instead of reading files synchronously within the worker process, Nginx delegates the operation to a thread。This immediately liberates the worker process, which can then move on to the next request in the queue.
+			Whenever the thread finishes performing the operation, the worker process finalizes and sends the response to the client.
+
+		相关的模块： --with-threads
+			thread_pool MyPool threads=64;
+			[...] 
+			location /downloads/ { 
+				aio threads=MyPool; 
+				directio 8k; 
+				sendfile on;
+			}
+			//If the file requested by the client is over 8k (the value specified with the directio directive), aio will be used. Otherwise, the file will be sent via sendfile.
+
+
+
+使用nginx遇到问题如何解决
+	1.Checking access permissions
+	2.Testing your configuration
+		Always keep a backup of your working configuration files in case something goes wrong
+		Before reloading or restarting Nginx, test your configuration with a simple command, nginx -t, to test your current configuration files, or run nginx -t -c /path/to/config/file.conf
+		Reload your server instead of restarting it, preferring service nginx reload over service nginx restart (nginx -s reload instead of nginx -s stop && nginx), as it will keep existing connections alive, and thus, won't interrupt ongoing file downloads
+	3.Have you reloaded the service?
+	4.Checking logs
+		Installing a log parser（GoAccess）
+	5.Install issues
+		1.Some of the prerequisites are missing or an invalid path to the source was specified
+		2.After having installed Nginx correctly, you cannot use the SSL-related directives to host a secure website. Have you made sure to include the SSL module correctly during the configure step?
+		3.Nginx refuses to start and outputs a message similar to [emerg] bind() to 0.0.0.0:80 failed (98: Address already in use). This error signifies that another application is utilizing the network port 80.or that you don't have the proper permissions to open a server socket on this port.
+		4.Nginx refuses to start and outputs a message similar to [emerg] 3629#0: open() "/path/to/logs/access.log" failed (2: No such file or directory). In this case, one of the files that Nginx tries to open, such as a log file, cannot be accessed. This could be caused by invalid access permissions or by an invalid directory path
