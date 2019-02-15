@@ -1,0 +1,399 @@
+<q>标签 ： 短引用（ short, pithy quotes）
+<blockquote> : 长引用（ longer quotes, often memorizing complete passages from books or poems）
+
+<img>是inline元素
+
+
+
+列表：  
+    <ol>
+        <li>item1</li>
+        <li>item1</li>
+        ...
+    </ol>
+
+    <ul>
+        <li>item1</li>
+        <li>item1</li>
+        ...
+    </ul>
+
+    <dl>
+        <dt>term</dt>
+        <dd>description</dd>
+        ..
+    </dl>
+
+缩略图（thumbnail）
+    需要自己调整原始图片的大小
+
+
+使用html标准
+    校验文档是否符合标准： https://validator.w3.org/
+
+    html4.01
+        过渡transitional
+            <!DOCTYPE html PUBLIC “-//W3C//DTD HTML 4.01 Transitional//EN” “http://www.w3.org/TR/html4/loose.dtd”>
+            <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1"
+                    ...
+                </head>
+                <body>
+                ...
+                </body>
+            </html
+
+        严格strict（不允许任何旧的不规范写法）
+            <!DOCTYPE html PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+            <html>
+                <head>
+                    <meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1"
+                    ...
+                </head>
+                <body>
+                ...
+                </body>
+            </html
+
+
+xhtml(也区分transitional 和strict)
+    使用xml 重新定义html，与html4 strict 的差别很小
+
+    <!DOCTYPE html PUBLIC “-//W3C//DTD XHTML 1.0 Strict//EN” “http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd”>
+    <html xmlns=”http://www.w3.org/1999/xhtml” lang=”en” xml:lang=”en”>
+        <head>
+            <meta http-equiv=”Content-Type” content=”text/html; charset=UTF-8” />
+            <title>Head First Lounge</title>
+        </head>
+        <body>
+            ...
+            <p><img src=”drinks.gif” alt=”The drinks” /></p>  （注意：空元素带有“ />”）
+        </body>
+    </html>
+
+
+
+CSS
+    并不是所有的style都是可以继承的，仅有一部分style可以继承；通常与文本（text）相关的style都是可以继承的，而向border这些的则不能继承
+
+    确定一个元素的style
+        1.是否有selector选中
+            若多个selector选中同一个元素，且配置了相同的property，则出现了冲突，则更详细的selector会生效；若详细程度一致，而后出现的selector生效
+        2.是否从父元素继承
+        3.浏览器默认style
+
+    同样的可以通过w3c 验证一个css 文件的有效性
+
+
+    常见的css property
+        color : Use color to set the font color of text elements.
+        font-weight : This property controls the weight of text. Use it to make text bold
+        left : This is how you tell an element how to position its left side.
+        line-height : This property sets the space between lines in a text element.
+        top : Controls the position of the top of the element.
+        letter-spacing : This lets you set the spacing between letters. L i k e t h i s
+        background-color : This property controls the background color of an element.
+        border : This property puts a border around an element. You can have a solid border, a ridged border, a dotted border...
+        margin : if you need space between the edge of an element and its content,use margin
+        font-size : Makes text bigger or smaller.
+        text-align : Use this property to align your text to the left, center, or right
+        font-style : Use this property for italic or oblique text.
+        list-style : This property lets you change how list items look in a list.
+        background-image : Use this property to put an image behind an element
+
+
+    fonts
+        font-family： 使用不同的字体（有五种family，sans-serif, serif, monospace, cursive, and fantasy，每种family下包含多种字体）
+            body {
+                font-family: Verdana, Geneva, Arial, sans-serif;
+            }
+
+            可以配置多个替代的字体，但所有的字体应该属于同一个family，最后一个value 是font-family
+
+        font-size ： 字体大小（实际是字体高度）
+            font-size: 14px;
+            font-size: 150%;//相对于父元素
+            font-size: 1.2em;//相对于父元素的1.2倍
+            font-size: xx-small;//keyword可选值：xx-small，x-small，small，medium，large，x-large，xx-large，大小由浏览器定义，每一级比上一级大20%，small通常是12px
+
+            使用推荐：
+                1.在body 中使用keyword
+                2.在其他元素中使用em或百分比
+        
+        font-style ： 斜体可选值italic，oblique
+
+        color ： 字体，border颜色
+        font-weight ： 可选值有lighter，normal，bold，bolder
+        text-decoration ： 文字修饰，可选值有none，underline，overline，line-through，blink(可以同时设置多个值，用空格隔开)
+        line-height：设置行与行之间的宽度，相对于font-size（可以使用px，百分比，em）
+
+        简化：
+            font: font-style font-variant font-weight font-size/line-height font-family  //顺序等有一定的限制
+
+
+    颜色
+        表示颜色
+            name => color: black;
+            rbg => color: rbg(80%, 40%, 0%); 或者 color: rgb(204, 102, 0);//0到255
+            hex => color: #cc6600;
+
+        background-color
+
+
+盒子模型
+    所有的元素都会被视为盒子模型，不管是block 元素还是inline 元素
+
+    背景
+        background-color: #a7cece;
+        background-image: url(images/background.gif);//会重复直至占据所有背景空间，从左到右，从上至下
+        background-repeat: no-repeat;//默认是repeat，可选值：no-repeat，repeat-x，repeat-y，inherit
+        background-position: top left;//默认就是top left（可用的keyword：top，left，right，bottom，center；还可以用pixel或百分比）
+
+        简化：
+            background: white url(images/cocktail.gif) repeat-x;//顺序无关，数量不限
+
+    border 
+        border-color: black;
+        border-width: 1px;//或者使用keyword:thin,medium,thick
+        border-style: solid;//可选值solid，double，groove，outset，dotted，dashed，inset，ridge
+
+        同样的，可以只设置一边的属性
+        eg ： border-top-color，border-right-style，border-bottom-width，border-left-color...
+
+        简化：
+            border: thin solid #007e7e;//顺序无关，也可以只由一个/两个属性
+        
+
+    padding
+        值可以是px或百分比
+        padding： 25px;(上右下左，顺时针)
+        padding-top，padding-right，padding-bottom，padding-left
+
+        简化：
+            padding: 0px 20px 30px 10px;//上右下左，顺时针
+            padding: 0px 20px;//上下， 左右
+
+
+    margin
+        值可以是px或百分比
+        margin： 25px;(上右下左，顺时针)
+        margin-top，margin-right，margin-bottom，margin-left
+
+        简化： 
+            margin: 0px 20px 30px 10px;//上右下左，顺时针
+            margin: 0px 20px;//上下， 左右
+
+
+
+div 和 span
+    div ： 用于构建逻辑结构
+        div 内的元所有素会根据div 的width和 height进行自适应
+
+        width
+            width：200px;//width 属性只会对盒子模型中的content生效，block 元素的width 属性默认为auto ，即会自适应填充所有可用的空间
+            width：30%;/则相对于该元素所在的容器的width（可以是<body>,<div>等）
+
+        text-align: center;//会对block 中所有的inline content起作用，只在block元素中设置，但可以被子block元素继承
+
+        #elixirs h2 {  //选中id 为elixirs 的所有h2 ，包含子元素，孙子元素，曾孙元素...
+            color: black;
+        }
+
+        #elixirs h2 {  //选中id 为elixirs 的所有h2 ，仅包含直接子元素
+            color: black;
+        }
+
+        #elixirs {  
+            line-height: 1;//仅使用数字时，使该div 下的所有元素的的line-height 与自身的font-size一致
+        }
+
+
+    span
+
+
+    伪类
+        a
+            a:link  => unvisited state
+            a:visited => visited state
+            a:hover => hover over state
+            a:focus => browser focus on link(使用tab键)
+            a:active => user first clicks on a link      
+
+
+layout & position
+    浏览器对block元素的默认处理方式： flow => 从上到下，结束一个block则换行
+    浏览器对inline元素的默认处理方式： flow => 从上到下，从左到右，一个接一个，塞不下就下一行
+
+
+    float
+        会从flow中剔除
+        所有float 元素必须有width 属性
+        可以这样认为： block 元素会忽略floated 元素，而inline 元素却会感知到floated 元素
+        可以作用于block元素，也可以作用于inline元素
+
+    clear
+        clear： right;//某个元素使用该属性后，其他元素无法float在该元素的右侧（left，both），即消除其他元素在该元素的float效果（向下移动避开floated 元素）
+
+
+    liquid layouts
+         expand to fill whatever width we resize the browser to
+
+
+    frozen layouts
+        Frozen layouts lock the elements down, frozen to the page, so they can’t move at all, and so we avoid a lot of issues that are caused by the window expanding
+
+        将body 中的所有元素放到一个div 中，然后添加以下样式
+            #allcontent {
+                width: 800px;//使用固定的宽度
+                padding-top: 5px;
+                padding-bottom: 5px;
+                background-color: #675c47;
+            }
+
+    jello
+        Jello layouts lock down the width of the content area in the page, but center it in the browser
+
+        将body 中的所有元素放到一个div 中，然后添加以下样式
+            #allcontent {
+                width: 800px;//使用固定的宽度
+                padding-top: 5px;
+                padding-bottom: 5px;
+                background-color: #675c47;
+                margin-left: auto;//居中
+                margin-right: auto;//居中
+            }
+
+
+    position   
+        position 的默认值是static，可选值还有absolute，fixed，relative
+        可以作用于block元素，也可以作用于inline元素
+        同样的，会从flow中剔除，但是与float不同的是，其他inline元素也不会意思到该元素的存在，不会主动环绕该元素
+        使用position相当于将元素位置的控制权从浏览器转移到开发者
+
+        position: absolute;//相对于最近的某个positioned元素，最顶级的是<html>（即相对于page）
+        top: 100px;//或者bottom，也可用百分比
+        right: 200px;//或者left
+        width: 280px;
+
+
+        position: fixed;//相对于window（也叫viewport？）
+        top: 100px;//或者bottom，也可用百分比
+        right: 200px;//或者left
+
+        .beanheading img {//keep the element in the flow, have its space reserved, and then offset where it actually gets displayed
+            position: relative;
+            left: 120px;
+        }
+        相当于在保留了原有的位置（flow中的元素无法使用）的基础上进行绝对的位移
+
+            
+
+table & list    
+    <table summary="this is summary">
+        <caption>The cities I visited on my Segway’n USA travels</caption>
+        <tr>
+            <th>City</th>
+            <th>Date</th>
+            <th>Temperature</th>
+            <th>Altitude</th>
+            <th>Population</th>
+            <th>Diner Rating</th>
+        </tr>
+        <tr>
+            <td>Walla Walla, WA</td>
+            <td>June 15th</td>
+            <td>75</td>
+            <td>1,204 ft</td>
+            <td>29,686</td>
+            <td>4/5</td>
+        </tr>
+        <tr>
+            <td>Magic City, ID</td>
+            <td>June 25th</td>
+            <td>74</td>
+            <td>5,312 ft</td>
+            <td>50</td>
+            <td>3/5</td>
+        </tr>
+
+        //使用rowspan扩展到多行，同样的，可以使用colspan扩展到多列，去掉被扩展的cell，可以同时使用rowspan和colspan
+        <tr>
+            <td rowspan=”2”>Truth or Consequences, NM</td>
+            <td class=”center”>August 9th</td>
+            <td class=”center”>93</td>
+            <td rowspan=”2” class=”right”>4,242 ft</td>
+            <td rowspan=”2” class=”right”>7,289</td>
+            <td class=”center”>5/5</td>
+        </tr>
+        <tr>
+            <td class=”center”>August 27th</td>
+            <td class=”center”>98</td>
+            <td class=”center”>4/5</td>
+        </tr>
+    </table>
+
+    table {
+        margin-left: 20px;
+        margin-right: 20px;
+        border: thin solid black;
+        caption-side: bottom;
+        border-spacing: 10px 30px;//水平 垂直
+        border-collapse: collapse;//合并border
+    }
+
+    table 中的margin 不太一样，cell 之间的空间称之为border-spacing （可以在table的样式中定义）
+
+
+
+    列表
+        li {
+            list-style-type: disc;//无序列表前导符号，可选值disc，circle，square，none
+            list-style-image: url(images/backpack.gif)
+            list-style-type： decimal;//有序列表迁到符号，可选值decimal，upper-alpha, lower-alpha, upper-roman, and lower-roman
+        }
+
+
+
+表单
+    表单中常用元素 
+        text input ： <input type=“text” name=“fullname” />
+        submit input ： <input type=“submit” />
+        radio input ： <input type=“radio” name=“hotornot” value=“hot” checked=”checked” /> 一组radio input 使用相同的name
+        checkbox input : <input type=“checkbox” name=“spice[]” value=“salt” checked=”checked” /> 一组checkbox input 使用相同的name 
+        password input ： <input type=”password” name=”secret” />
+        file input ： <input type=”file” name=”doc” />
+
+        textarea ： <textarea name=“comments” rows=“10” cols=“48”></textarea>
+        
+        select ：一个select 使用相同的name
+            <select name=“characters”>
+                <option value=“Buckaroo”>Buckaroo Banzai</option>
+                <option value=“Tommy”>Perfect Tommy</option>
+                <option value=“Penny”>Penny Priddy</option>
+                <option value=“Jersey”>New Jersey</option>
+                <option value=“John”>John Parker</option>
+            </select> 
+
+        Multiple selection
+            <select name=”characters” multiple=”multiple”>
+                <option value=”Buckaroo”>Buckaroo Banzai</option>
+                <option value=”Tommy”>Perfect Tommy</option>
+                <option value=”Penny Priddy”>Penny</option>
+                <option value=”New Jersey”>Jersey</option>
+                <option value=”John Parker”>John</option>
+            </select>
+
+    可以使用table来构建表单
+
+    fieldsets and legends
+        <fieldset>
+            <legend>Condiments</legend>//为该组合提供一个名字
+            <input type=”checkbox” name=”spice” value=”salt” />Salt <br />
+            <input type=”checkbox” name=”spice” value=”pepper” />Pepper <br />
+            <input type=”checkbox” name=”spice” value=”garlic” />Garlic
+        </fieldset>
+
+    Labels
+        <input type=”radio” name=”hotornot” value=”hot” id=”hot” />
+        <label for=”hot”>hot</label>
