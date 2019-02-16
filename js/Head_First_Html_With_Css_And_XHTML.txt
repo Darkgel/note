@@ -271,7 +271,7 @@ layout & position
         同样的，会从flow中剔除，但是与float不同的是，其他inline元素也不会意思到该元素的存在，不会主动环绕该元素
         使用position相当于将元素位置的控制权从浏览器转移到开发者
 
-        position: absolute;//相对于最近的某个positioned元素，最顶级的是<html>（即相对于page）
+        position: absolute;//相对于最近的某个position元素，最顶级的是<html>（即相对于page）
         top: 100px;//或者bottom，也可用百分比
         right: 200px;//或者left
         width: 280px;
