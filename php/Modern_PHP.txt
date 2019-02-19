@@ -1,0 +1,37 @@
+Chapter 1. The New PHP
+    目前存在的两种php引擎
+        1.Zend Engine ，由Rasmus Lerdorf, Andi Gutmans, and Zeev Suraski用c语言写的的引擎，在php4中引入
+        2.hhvm（HipHop Virtual Machine）,facebook推出的
+
+    什么是php引擎：用于解析（parse），解释（interpret），执行（execute）php代码的程序
+
+    动态类型（dynamic types）在运行时被检查；静态类型（static types）在编译时被检查
+
+
+
+
+Chapter 2. Features
+    Namespace
+        在php5.3.0引入
+
+        namespace关键字必须在跟在<?php之后
+
+        别名
+            use Symfony\Component\HttpFoundation\Response as Res;
+            If we don’t append the as Res alias to the import line, PHP assumes a default alias that is the same as the imported class name
+
+        php5.6以后，允许引入函数和常量
+            use func Namespace\functionName;
+            functionName();
+
+            use constant Namespace\CONST_NAME;
+            echo CONST_NAME;
+
+        允许将同一个文件定义在不同的命名空间下，但是非常不建议这么做
+
+        若在引用一个class，interface，function，或constant 时没有使用namespace ，则默认其存在于当前命名空间下。
+
+        若没有为代码显式定义一个命名空间，则这些代码位于global namespace ，
+
+        面向接口编程
+            通过面向接口编程，我们可以在不了解第三方代码实现的情况下使用其代码
