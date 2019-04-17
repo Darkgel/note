@@ -1,0 +1,212 @@
+网站地址：https://survivejs.com/webpack/introduction/
+
+
+
+What is Webpack
+    Webpack is a module bundler. （打包html，css，js等前端资源）
+
+    一个entry就是一个模块（module）
+
+    Webpack relies on loaders and plugins. 
+        Loaders operate on a module level, while plugins rely on hooks provided by webpack and have the best access to its execution process.
+
+
+
+Developing
+    It's a good idea to use a locally installed version of webpack over a globally installed one. This way you can be sure of what version you are using. The local dependency also works in a Continuous Integration environment.
+    Webpack provides a command line interface through the webpack-cli package. You can use it even without configuration, but any advanced usage requires configuration.
+    To write more complicated setups, you most likely have to write a separate webpack.config.js file.
+    It's handy to use npm package.json scripts to manage webpack. You can use it as a light task runner and use system features outside of webpack.
+
+
+    webpack-dev-server(WDS)
+        "scripts": {
+            "start": "webpack-dev-server --mode development"
+        },
+
+        当文件有改动时，自动编译并刷新浏览器
+        WDS使用与 webpack 相同的配置文件（devServer配置），配置示例如下：
+            devServer: {
+                // Display only errors to reduce the amount of output.
+                stats: "errors-only",
+
+                // Parse host and port from env to allow customization.
+                //
+                // If you use Docker, Vagrant or Cloud9, set
+                // host: options.host || "0.0.0.0";
+                //
+                // 0.0.0.0 is available to all network devices
+                // unlike default `localhost`.
+                host: process.env.HOST, // Defaults to `localhost`
+                port: process.env.PORT, // Defaults to 8080
+                open: true, // Open the page in browser
+            },
+
+        注意：只有在修改了bundled file 时WDS才会起作用，如果修改了webpack的配置文件时不会起作用的
+
+    nodemon
+        使用后可以监听webpack 配置然后在出现修改时重启 WDS
+        "start": "nodemon --watch webpack.config.js --exec \"webpack-dev-server --mode development\"",
+
+    webpack配置管理
+        1.Maintain configuration within multiple files for each environment and point webpack to each through the --config parameter, sharing configuration through module imports.
+        2.Push configuration to a library, which you then consume. Examples: hjs-webpack, Neutrino, webpack-blocks.
+        3.Push configuration to a tool. Examples: create-react-app, kyt, nwb.
+        4.Maintain all configuration within a single file and branch there and rely on the --env parameter. The approach is explained in detail later in this chapter.
+
+        工具： webpack-merge，webpack-chain 
+            合并webpack配置示例
+                webpack.parts.js ： 
+                    exports.devServer = ({ host, port } = {}) => ({
+                        devServer: {
+                            stats: "errors-only",
+                            host, // Defaults to `localhost`
+                            port, // Defaults to 8080
+                            open: true,
+                            overlay: true,
+                        },
+                    });
+
+                webpack.config.js
+                    const merge = require("webpack-merge");
+                    const HtmlWebpackPlugin = require("html-webpack-plugin");
+
+                    const parts = require("./webpack.parts");
+
+                    const commonConfig = merge([
+                    {
+                        plugins: [
+                        new HtmlWebpackPlugin({
+                            title: "Webpack demo",
+                        }),
+                        ],
+                    },
+                    ]);
+
+                    const productionConfig = merge([]);
+
+                    const developmentConfig = merge([
+                    parts.devServer({
+                        // Customize host/port here if needed
+                        host: process.env.HOST,
+                        port: process.env.PORT,
+                    }),
+                    ]);
+
+                    module.exports = mode => {
+                    if (mode === "production") {
+                        return merge(commonConfig, productionConfig, { mode });
+                    }
+
+                    return merge(commonConfig, developmentConfig, { mode });
+                    };
+
+
+
+Styling
+    webpack本身不支持处理样式，但可以通过使用loaders和plugins来加载样式文件
+    为了加载css，需要loader ： css-loader 和 style-loader
+
+    处理less ： less-loader
+        {
+            test: /\.less$/,
+            use: ["style-loader", "css-loader", "less-loader"],
+        }
+
+    处理sass ： sass-loader
+        {
+            test: /\.scss$/,
+            use: ["style-loader", "css-loader", "sass-loader"],
+        },
+
+    To use source maps, you have to enable sourceMap boolean through each style loader you are using except for style-loader. You should also set output.publicPath to an absolute url that points to your development server.
+
+    Separating CSS(将css从js中分开来)
+        使用plugin ： mini-css-extract-plugin (MCEP)（暂不支持Hot Module Replacement (HMR)，只能用于生产环境）
+            该plugin 包含了一个loader（MiniCssExtractPlugin.loader），该loader 标记了哪些资源需要从js中提取
+
+            const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+
+            exports.extractCSS = ({ include, exclude, use = [] }) => {
+            // Output extracted CSS to a file
+            const plugin = new MiniCssExtractPlugin({
+                filename: "[name].css",
+            });
+
+            return {
+                module: {
+                rules: [
+                    {
+                    test: /\.css$/,
+                    include,
+                    exclude,
+
+                    use: [
+                        MiniCssExtractPlugin.loader,
+                    ].concat(use),
+                    },
+                ],
+                },
+                plugins: [plugin],
+            };
+            };
+
+
+    Eliminating Unused CSS(去除无用的css)
+        工具 ： PurifyCSS，uncss 
+        npm install glob purifycss-webpack purify-css --save-dev
+
+    Autoprefixing
+        处理不同浏览器厂商的前缀
+        工具： postcss-loader autoprefixer
+            npm install postcss-loader autoprefixer --save-dev
+
+    
+
+
+Loading Assets
+    url-loader & file-loader(url-loader uses file-loader implicitly when limit is set, and both have to be installed for the setup to work.)
+        {
+            test: /\.(jpg|png)$/,
+            use: {
+                loader: "url-loader",
+                options: {
+                limit: 25000,
+                },
+            },
+        },
+
+        {
+            test: /\.(jpg|png)$/,
+            use: {
+                loader: "file-loader",
+                options: {
+                name: "[path][name].[hash].[ext]",
+                },
+            },
+        },
+
+    Loading SVGs
+        {
+            test: /\.svg$/,
+            use: "file-loader",
+        },
+
+    Loading JavaScript
+        Babel ：babel-loader
+            npm install babel-loader @babel/core --save-dev
+
+            exports.loadJavaScript = ({ include, exclude } = {}) => ({
+                module: {
+                    rules: [
+                    {
+                        test: /\.js$/,
+                        include,
+                        exclude,
+                        use: "babel-loader",
+                    },
+                    ],
+                },
+            });
+
+            配置文件：.babelrc => 需要 npm install @babel/preset-env --save-dev

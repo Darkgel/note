@@ -1,0 +1,5 @@
+1.提供 client credentials grant 给ssr使用
+2.提供 password grant 给vue-admin使用
+3.提供 authorization code grant 给ssr使用
+
+

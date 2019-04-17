@@ -1,0 +1,285 @@
+第一章 基本概念
+    Docker 包括三个基本概念
+        镜像（ Image）
+        容器（ Container）
+        仓库（ Repository）
+    理解了这三个概念，就理解了 Docker 的整个生命周期
+
+
+    Docker 镜像
+        Docker 镜像是一个特殊的文件系统，除了提供容器运行时所需的程序、库、资源、配置等文件外，还包含了一些为运行时准备的一些配置参数（ 如匿名卷、环境变量、用户等） 。镜像不包含任何动态数据，其内容在构建之后也不会被改变。
+
+        分层存储
+            严格来说，镜像并非是像一个 ISO 那样的打包文件，镜像只是一个虚拟的概念，其实际体现并非由一个文件组成，而是由一组文件系统组成，或者说，由多层文件系统联合组成
+
+    Docker 容器
+        镜像（ Image） 和容器（ Container） 的关系，就像是面向对象程序设计中的 类 和 实例 一样，镜像是静态的定义，容器是镜像运行时的实体。
+
+        容器的实质是进程，但与直接在宿主执行的进程不同，容器进程运行于属于自己的独立的 命名空间。
+
+        每一个容器运行时，是以镜像为基础层，在其上创建一个当前容器的存储层，我们可以称这个为容器运行时读写而准备的存储层为容器存储层。
+
+    Docker Registry
+        一个集中的存储、分发镜像的服务
+
+        一个 Docker Registry 中可以包含多个仓库（ Repository） ；每个仓库可以包含多个标签（ Tag） ；每个标签对应一个镜像。
+
+
+第二章 安装docker
+    1. 安装docker-ce
+        https://yq.aliyun.com/articles/110806?spm=5176.8351553.0.0.7f231991BmKQLo
+
+    2. 建立 docker 用户组
+        sudo groupadd docker（安装时可能已经新建： 使用·sudo cat /etc/group | grep docker·查看）
+        sudo usermod -aG docker $USER （将当前用户加入 docker 组）
+
+    3. 配置加速器
+        检查加速器是否生效
+            sudo ps -ef | grep dockerd
+            或者（Docker 版本大于1.13或17.05.0-ce）
+            sudo docker info|grep "Registry Mirrors" -A 1
+
+        若配置后发现有问题可以重新登录试试
+
+
+第三章 使用镜像
+    1.获取镜像（默认Docker Registry 是 docker hub）
+        docker pull [选项] [Docker Registry地址]<仓库名>:<标签>
+
+        虚悬镜像 ： 由于新旧镜像同名，旧镜像名称被取消，从而出现仓库名、标签均为 <none> 的镜像
+        查看虚悬镜像 ： docker images -f dangling=true
+        删除虚悬镜像： docker rmi $(docker images -q -f dangling=true)
+
+    2.定制镜像
+        镜像是多层存储，每一层是在前一层的基础上进行的修改；而容器同样也是多层存储，是在以镜像为基础层，在其基础上加一层作为容器运行时的存储层。
+
+        2.1 将当前容器的修改保存下来变成镜像（将容器的存储层保存下来成为镜像） ：  docker commit [选项] <容器ID或容器名> [<仓库名>[:<标签>]]
+        ！！！慎用docker commit构建镜像，因为通常在运行的容器中会有很多修改并不是我们想要的，同时别人也无法知道镜像是怎么生成的（定制行为应该使用Dockerfile来完成）
+
+        2.2 使用Dockerfile定制镜像(每一条指令构建一层)
+            通过Dockerfile构建镜像
+                docker build [选项] <上下文路径/URL/->
+                docker build -t nginx:v3 .
+
+            镜像构建上下文（ Context）
+                当构建的时候，用户会指定构建镜像上下文的路径， docker build 命令得知这个路径后，会将路径下的所有内容打包，然后上传给 Docker 引擎。这样 Docker 引擎收到这个上下文包后，展开就会获得构建镜像所需的一切文件。
+
+            常用命令
+                FROM 指定基础镜像
+
+                RUN 执行命令
+                    shell 格式： RUN <命令>
+                    exec 格式： RUN ["可执行文件", "参数1", "参数2"]
+                
+                COPY 复制文件
+                    COPY <源路径>... <目标路径>
+                    COPY ["<源路径1>",... "<目标路径>"]
+                    <目标路径> 可以是容器内的绝对路径，也可以是相对于工作目录的相对路径（ 工作目录可以用 WORKDIR 指令来指定）
+                    目标路径不需要事先创建，如果目录不存在会在复制文件前先行创建缺失目录。
+                    使用 COPY 指令，源文件的各种元数据都会保留。比如读、写、执行权限、文件变更时间等。
+
+                ADD 更高级的复制文件 （不推荐使用）
+                    <源路径> 可以是一个 URL
+
+                CMD 容器启动命令（容器就是进程，CMD 指令就是用于指定默认的容器主进程的启动命令的）
+                    shell 格式： CMD <命令>
+                    exec 格式： CMD ["可执行文件", "参数1", "参数2"...]
+                    参数列表格式： CMD ["参数1", "参数2"...] 。在指定了 ENTRYPOINT 指令后，用 CMD 指定具体的参数。
+
+                ENTRYPOINT 入口点（目的和 CMD 一样，都是在指定容器启动程序及参数。）
+                    当指定了 ENTRYPOINT 后， CMD 的含义就发生了改变，不再是直接的运行其命令，而是将 CMD 的内容作为参数传给 ENTRYPOINT 指令，即：
+                        <ENTRYPOINT> "<CMD>"
+
+                ENV 设置环境变量
+                    ENV <key> <value>
+                    ENV <key1>=<value1> <key2>=<value2>
+
+                ARG 构建参数
+                    ARG <参数名>[=<默认值>]
+                    构建参数和 ENV 的效果一样，都是设置环境变量。所不同的是， ARG 所设置的构建环境的环境变量，在将来容器运行时是不会存在这些环境变量的。
+                    该默认值可以在构建命令 docker build 中用 --build-arg <参数名>=<值> 来覆盖
+
+                VOLUME 定义匿名卷
+                    VOLUME ["<路径1>", "<路径2>"...]
+                    VOLUME <路径>
+
+                    为了防止运行时用户忘记将动态文件所保存目录挂载为卷，在 Dockerfile 中，我们可以事先指定某些目录挂载为匿名卷，这样在运行时如果用户不指定挂载，其应用也可以正常运行，不会向容器存储层写入大量数据。
+
+                EXPOSE 声明端口
+                    EXPOSE <端口1> [<端口2>...]
+                    这只是一个声明，在运行时并不会因为这个声明应用就会开启这个端口的服务
+
+                WORKDIR 指定工作目录
+                    WORKDIR <工作目录路径> 
+                    如该目录不存在， WORKDIR 会帮你建立目录
+
+                USER 指定当前用户
+                    USER <用户名>
+                    这个用户必须是事先建立好的，否则无法切换。
+
+                HEALTHCHECK 健康检查
+                    HEALTHCHECK [选项] CMD <命令> ：设置检查容器健康状况的命令
+                    HEALTHCHECK NONE ：如果基础镜像有健康检查指令，使用这行可以屏蔽掉其健康检查指令
+
+                    HEALTHCHECK 只可以出现一次，如果写了多个，只有最后一个生效
+
+                ONBUILD 为他人做嫁衣裳
+                    ONBUILD 是一个特殊的指令，它后面跟的是其它指令，比如 RUN , COPY 等。而这些指令，在当前镜像构建时并不会被执行。只有当以当前镜像为基础镜像，去构建下一级镜像的时候才会被执行。
+
+        2.3 删除本地镜像
+            docker rmi [选项] <镜像1> [<镜像2> ...]
+
+            删除行为分为两类，一类是 Untagged ，另一类是 Deleted
+
+            使用上面命令删除镜像的时候，实际上是在要求删除某个标签的镜像
+            并非所有的 docker rmi 都会产生删除镜像的行为，有可能仅仅是取消了某个标签而已。
+            当该镜像所有的标签都被取消了，该镜像很可能会失去了存在的意义，因此会触发删除行为
+
+            除了镜像依赖以外，还需要注意的是容器对镜像的依赖。如果有用这个镜像启动的容器存在（ 即使容器没有运行） ，那么同样不可以删除这个镜像。
+
+
+
+第四章 操作容器
+    容器是独立运行的一个或一组应用，以及它们的运行态环境。
+
+    启动容器有两种方式，一种是基于镜像新建一个容器并启动，另外一个是将在终止状态（ stopped） 的容器重新启动。
+        docker run
+        docker start
+
+    当利用 docker run 来创建容器时，Docker 在后台运行的标准操作包括：
+        1.检查本地是否存在指定的镜像，不存在就从公有仓库下载
+        2.利用镜像创建并启动一个容器
+        3.分配一个文件系统，并在只读的镜像层外面挂载一层可读写层
+        4.从宿主主机配置的网桥接口中桥接一个虚拟接口到容器中去
+        5.从地址池配置一个 ip 地址给容器
+        6.执行用户指定的应用程序
+        7.执行完毕后容器被终止
+
+    查看容器
+        docker ps
+        终止状态的容器可以用 docker ps -a 命令看到
+
+        docker logs 
+
+    进入容器
+        docker attach 命令或 nsenter 工具
+
+        新版本使用docker exec
+
+    导入和导出容器
+        docker export
+        docker import 
+
+    删除容器
+        docker rm
+
+
+
+第五章 访问仓库
+    下载容器
+        docker pull
+
+    私有仓库（准确的表达应该是私有registry）
+        docker-registry（一个docker镜像）
+            安装并运行 ： docker run -d -p 5000:5000 registry
+            安装在 centos 上： 
+                sudo yum install -y python-devel libevent-devel python-pip gcc xz-devel
+                sudo python-pip install docker-registry
+
+                或者源码
+                    sudo apt-get install build-essential python-dev libevent-dev python-pip libssl-dev liblzma-dev libffi-dev
+                    git clone https://github.com/docker/distribution
+                    cd distribution
+                    sudo docker build .
+
+    在私有仓库上传、下载、搜索镜像
+        为镜像打tag
+            docker tag ba58 192.168.7.26:5000/test
+
+        上传
+            docker push 192.168.7.26:5000/test
+
+        用 curl 查看仓库中的镜像
+            curl http://192.168.7.26:5000/v1/search
+
+        下载
+            sudo docker pull 192.168.7.26:5000/test
+
+
+
+第六章 Docker数据管理
+    在容器中管理数据主要有两种方式 ： 
+        1. 数据卷（ Data volumes）
+        2. 数据卷容器（ Data volume containers）
+
+    数据卷
+        数据卷是一个可供一个或多个容器使用的特殊目录，它绕过 UFS，可以提供很多有用的特性：
+            1. 数据卷可以在容器之间共享和重用
+            2. 对数据卷的修改会立马生效
+            3. 对数据卷的更新，不会影响镜像
+            4. 数据卷默认会一直存在，即使容器被删除
+
+        挂载一个主机目录作为数据卷 ： docker run -d -P --name web -v /src/webapp:/opt/webapp training/webapp python app.py
+
+        如果你有一些持续更新的数据需要在容器之间共享，最好创建数据卷容器
+
+
+
+第七章 使用网络
+    1.外部访问容器
+        参数 ： -P 或 -p
+
+        注意 ： 容器有自己的内部网络和 ip 地址
+
+    2.容器互联
+        容器的连接（ linking） 系统 ： 在源和接收容器之间创建一个隧道，接收容器可以看到源容器指定的信息
+
+        --link ： 
+            --link name:alias
+                name 是要链接的容器的名称
+                alias 是这个连接的别名
+
+            docker run -d --name db training/postgres
+            docker run -d -P --name web --link db:db training/webapp python app.py
+
+        Docker 通过 2 种方式为容器公开连接信息
+            1. 环境变量 （将环境变量加入到发起网络请求的容器中）
+            2. 更新 /etc/hosts 文件（host的domain与--name 一致）
+
+
+
+
+第八章 高级网络配置
+    当 Docker 启动时，会自动在主机上创建一个 docker0 虚拟网桥，实际上是Linux 的一个 bridge，可以理解为一个软件交换机。它会在挂载到它的网口之间进行转发。
+
+    配置 DNS
+        容器中的相关配置与宿主机同步
+            /etc/hostname，/etc/hosts ，/etc/resolv.conf
+
+    容器访问控制
+        通过 Linux 上的 iptables 防火墙来进行管理和实现
+
+    容器访问外部网络
+        需要本地系统的转发支持 ： sysctl net.ipv4.ip_forward，sysctl -w net.ipv4.ip_forward=1
+        如果在启动 Docker 服务的时候设定 --ip-forward=true , Docker 就会自动设定系统的 ip_forward 参数为 1
+
+    容器之间访问
+        需要满足 ： 
+            1. 容器的网络拓扑是否已经互联。默认情况下，所有容器都会被连接到docker0 网桥上。
+            2. 本地系统的防火墙软件 -- iptables 是否允许通过
+
+
+
+第九章 安全
+第十章 底层实现
+
+
+第十一章 Docker Compose 项目
+    Compose 定位是 “定义和运行多个 Docker 容器的应用（ Defining and running multi-container Docker applications） ”
+
+    Compose 中有两个重要的概念
+        1.服务（ service） ：一个应用的容器，实际上可以包括若干运行相同镜像的容器实例。
+        2.项目(project)：由一组关联的应用容器组成的一个完整业务单元，在 dockercompose.yml 文件中定义。
+
+其他
+    Docker Swarm 是 Docker 公司推出的官方容器集群平台（作为容器集群管理器），通过它可以使整个 Swarm 集群就像一个虚拟的 Docker 主机一样正常工作
