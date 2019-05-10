@@ -1,0 +1,15 @@
+为某个用户授权
+    1.创建service
+    2.创建permission
+    3.创建role，赋予role 相应的 permission
+    4.赋予user 相应的role 和 permission
+
+判断权限
+    1. route middleware
+    2.需要一个认证的user（guard -》 auth）（user 类型为TYPE_USER 或者 TYPE_CLIENT） authentication middleware
+    3.判断user是否具有相应的权限
+
+    为了判断权限需要的类
+        G:\code\php\vm\teamblog\teamblog-admin-api-laravel\app\Http\Middleware\ApiAuthorization.php
+
+        G:\code\php\vm\teamblog\teamblog-admin-api-laravel\app\Models\DbPassport\下的类

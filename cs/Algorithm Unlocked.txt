@@ -100,7 +100,7 @@
             矩阵中(u,v)代表节点u 到节点v 的边，可以用一个足够大的值（或0）表示u和v不邻接
 
         邻接表
-            用一个列表来记录每个节点的邻接节点
+            用一个列表来记录每个节点的邻接节点（以及节点之间的边）
 
     Critical path in a PERT chart （关键路径）
         PERT chart ： program evaluation and review technique
@@ -110,10 +110,56 @@
                 we say that the path contains both the vertices on it and the edges traversed
 
             A critical path in a PERT chart is a path for which the sum of the task times is maximum over all paths。（消耗最大的路径）
+            AOE-网中，从起点到终点最长的路径的长度（长度指的是路径上边的权重和）即关键路径，关键路径可以有多条
 
             关键路径决定了整个流程的最小消耗
 
         如何求关键路径：    
-            为了简化操作，可以在所有入度为0的节点前添加起始节点，在所有出度为0的节点后添加终止节点。
+            为了简化操作，可以在所有入度为0的节点前添加起始节点，在所有出度为0的节点后添加终止节点。(AOE网)
             将权重反转为为负值，然后关键路径的计算就是找到从起始节点到终止节点的最短路径
 
+    Shortest path in a directed acyclic graph
+        single-source shortest paths ：计算一个节点到所有其他节点的最短路径
+
+
+第六章 最短路径
+    1. 针对dag（有向无环图）的single-source shortest paths（算法复杂度O(n+m)）
+        a.先计算图的拓扑排序
+        b.初始化数组shortest 和数组 pred
+        c.使用拓扑排序后的边的，依次计算当前的最短路径
+
+    2. single-pair shortest path（计算某两点之间的最短路径）
+        Dijkstra算法
+            前提 ： 
+                1. 所有边的权重为非负数
+                2. 可以有环
+
+            思想： 
+                It starts by sending out runners from the source vertex to all adjacent vertices. 
+                The first time a runner arrives at any vertex, runners immediately leave that vertex, headed to all of its adjacent vertices
+
+                当某个顶点被“到达”，则该runner的路径是到该点的最短路径
+
+            算法 ： 
+                1.初始化数组shortest和数组pred
+                2.设集合Q包含所有的顶点
+                3.当集合Q不为空时，进行以下循环：
+                    a. 找到集合Q中顶点u的最短路径(已经不存在到达顶点u的边?)，然后从集合Q中删除顶点u
+                    b. 对所有从u出发的顶点
+                        i. 调用RELAX(u,v)
+
+
+        Bellman-Ford算法
+            前提 ：
+                1.边的权重可以为负数
+                2.可以有环
+
+            
+
+    3. all-pairs shortest path（计算图中所有顶点之间的最短路径）
+        Floyd-Warshall算法
+            关键点 ： 任何最短路径的子路径都是最短路径
+            前提：
+                1.可以有负权重的边，但是不能有负权重的环
+
+            
