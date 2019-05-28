@@ -1,0 +1,17 @@
+swoole是一个php扩展，面向生产环境的 PHP 异步网络通信引擎
+
+Swoole的绝大部分功能只能用于cli命令行环境
+
+Swoole\Server是事件驱动模式，所有的业务逻辑代码必须写在事件回调函数中。当特定的网络事件发生后，底层会主动回调指定的PHP函数。
+    所有事件回调均在$server->start后发生
+    服务器关闭程序终止时最后一次事件是onShutdown
+    服务器启动成功后，onStart/onManagerStart/onWorkerStart会在不同的进程内并发执行
+    onReceive/onConnect/onClose在Worker进程中触发
+    Worker/Task进程启动/结束时会分别调用一次onWorkerStart/onWorkerStop
+    onTask事件仅在task进程中发生
+    onFinish事件仅在worker进程中发生
+
+Swoole是多进程的模型
+
+BASE模式的适用场景：
+    如果客户端连接之间不需要交互，可以使用BASE模式。如Memcache、Http服务器等。

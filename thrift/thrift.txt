@@ -144,3 +144,23 @@ return [
 
 Learning Apache Thrift笔记
 thrift有提供自己的class loader： E:\data\web\blog\blog-php\vendor\packaged\thrift\src\Thrift\ClassLoader\ThriftClassLoader.php
+
+
+
+
+
+协议
+	TBinaryProtocol
+	TCompactProtocol
+	TJSONProtocol 
+	TSimpleJSONProtocol
+
+传输层
+	TSocket —— 使用阻塞式 I/O 进行传输，是最常见的模式
+	TFramedTransport —— 使用非阻塞方式，按块的大小进行传输，类似于 Java 中的 NIO
+	TNonblockingTransport —— 使用非阻塞方式，用于构建异步客户端
+
+服务端类型
+	TSimpleServer —— 单线程服务器端使用标准的阻塞式 I/O
+	TThreadPoolServer —— 多线程服务器端使用标准的阻塞式 I/O
+	TNonblockingServer —— 多线程服务器端使用非阻塞式 I/O
