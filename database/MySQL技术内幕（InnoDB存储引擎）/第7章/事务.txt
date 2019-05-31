@@ -1,0 +1,157 @@
+第七章 事务
+    事务会把数据库从一种一致状态转换到另一种一致状态
+
+    InnoDB中的事务完全符合ACID的特性 ： 
+        1. 原子性 （atomicity）
+        2. 一致性 （consistency）
+        3. 隔离性 （isolation）
+        4. 持久性 （durability）
+
+7.1 认识事务
+    事务是访问并更新数据库中各种数据项的一个程序执行单元。在事务中的操作，要么都做，要么都不做。
+
+    ACID
+        1. A（Atomicity） 原子性
+            整个数据库事务是不可分割的工作单位。要么都做，要么都不做。
+
+            如果事务中的操作都是只读的，要保持原子性较简单 ： 一旦发生任何错误，要么重试，要么返回错误代码
+
+        2. C（Consistency） 一致性
+            指将数据库从一种一致状态转变为下一种一致状态。
+            在事务开始和结束后，数据库的完整性约束没有被破坏。
+
+        3. I（Isolation） 隔离性
+            其他称呼 ：  并发控制（concurrency control），可串行化（serializability），锁（locking）
+
+            事务的隔离性要求每个读写事务的对象对其他事务的操作对象能相互分离，即该事务提交前对其他事务都不可见，通常这使用锁来实现。
+
+        4. D（Durability） 持久性
+            事务一旦提交，其结果就是永久性的。
+            即使当数据库因为崩溃而需要恢复时，也能保证恢复后提交的数据都不会丢失。
+            但若不是数据库本身发生故障，而是一些外部的原因，则无法保证。
+
+    事务的分类 
+        1. 扁平事务（Flat Transactions）
+        2. 带有保存点的扁平事务（Flat Transaction with Savepoints）
+        3. 链事务 （Chained Transaction）
+        4. 嵌套事务 （Nested Transaction）
+        5. 分布式事务 （Distributed Transaction）
+
+        对于InnoDB来说，其支持扁平事务，带有保存点的事务，链事务，分布式事务
+
+
+7.2 事务的实现
+    原子性，持久性通过数据库的redo log 实现。
+    一致性通过undo log 来实现。
+    隔离性通过锁来实现。
+
+    redo ： 恢复事务修改的页操作。redo通常是物理日志，记录的是页的物理修改操作。
+    undo ： 回滚行记录到某个特定版本。undo是逻辑日志，根据每行记录进行记录。
+
+    1. redo
+        由两部分组成 ： 
+            1. 内存中的重做日志缓存（redo log buffer），其是易失的
+            2. 重做日志文件，其是持久的
+
+        InnoDB通过Force Log at Commit机制实现事务的持久性，即当事务提交时，必须先将该事务的所有日志写入到重做日志文件进行持久化，待事务的commit操作完成才算完成。
+
+        为了满足持久性，在每次将重做日志缓冲写入重做日志后，InnoDB需要调用一次fsync操作。
+
+        二进制日志（binlog）与重做日志的比较
+            1. 重做日志在InnoDB存储引擎层产生；二进制日志在mysql数据库的上层产生，mysql数据库中的任何存储引擎对于数据库的更改都会产生二进制日志。
+            2. 两种日志记录的内容形式不同。二进制日志是一种逻辑日志，其记录的是对应的mysql语句；而重做日志是物理格式日志，其记录的是对于每个页的修改。
+            3. 两种日志记录写入磁盘的时间点不同。二进制日志只在事务提交完成后进行一次写入；重做日志在事务进行中不断地被写入。
+
+        重做日志缓存，重做日志文件都是以块（block）的方式进行保存的，每块的大小为512字节。由于重做日志块的大小和磁盘扇区大小一样，都是512字节，因此重做日志的写入可以保证原子性，不需要doublewirte技术
+
+        log buffer 根据一定的规则将内存中的log block 刷新到磁盘：
+            1. 事务提交时
+            2. 当log buffer中有一半的内存空间被使用时
+            3. log checkpoint 时
+
+        InnoDB在启动时不管上次数据库运行时是否正常关闭，都会尝试进行恢复操作。
+
+    2. undo
+        用于进行回滚操作和MVCC。即InnoDB中MVCC是通过undo完成的。
+
+        当用户读取一行记录是时，若该记录已经被其他事务占用，当前事务可以通过undo读取之前的行版本信息，以此实现非锁定读。
+        
+        undo存放在数据库内部的一个特殊段（segment）中，这个段称为undo段。undo段位于共享表空间中。
+
+        重要！！ ：undo log会产生redo log，这时因为undo log 也需要持久性的保护。 
+
+    对于InnoDB来说，事务提交时会进行两个阶段的操作 ： 
+        1. 修改内存中事务对应的信息，并且将日志写入到重做日志缓冲
+        2. 调用fsync将确保日志都从重做日志缓冲写入磁盘
+
+
+
+7.3 事务控制语句
+    在mysql命令行的默认设置下，事务都是自动提交（auto commit）的，即执行SQL语句后就会马上执行commit操作。
+
+    显式地开始一个事务 ：   
+        1. BEGIN , START TRANSACTION
+        2. 或 SET AUTOCOMMIT=0
+
+    常见的事务控制语句 ： 
+        1. START TRANSACTION | BEGIN : 显式地开启一个事务
+        2. COMMIT : 提交事务，并使得已对数据库做的所有修改成为永久性的。
+        3. ROLLBACK : 回滚会结束用户的事务，并撤销所有正在进行的未提交修改
+        4. SAVEPOINT identifier ： 在事务中创建一个保存点，一个事务中可以有多个SAVEPOINT
+        5. RELEASE SAVEPOINT identifier ： 删除一个事务的保存点
+        6. ROLLBACK TO [SAVEPOINT] identifier ： 把事务回滚到标记点 （并没有真正地结束/提交事务，）
+        7. SET TRANSACTION : 设置事务的隔离级别 
+            READ UNCOMMITTED
+            READ COMMITTED
+            REPEATABLE READ
+            SERIALIZABLE
+        
+
+
+7.4 隐式提交的SQL语句
+    1. DDL语句
+    2. 用来隐式修改mysql架构的操作
+    3. 管理语句
+
+
+7.5 对于事务操作的统计
+
+
+7.6 事务的隔离级别
+    InnoDB存储引擎默认支持的隔离级别时REPEATABLE READ，但是与标准SQL不同的是，在该隔离级别下，InnoDB使用Next-Key Lock算法，避免幻读的产生。
+
+    设置隔离级别 
+        SET [GLOBAL | SESSION] TRANSACTION ISOLATION LEVEL
+        {
+        READ UNCOMMITTED
+        | READ COMMITTED
+        | REPEATABLE READ
+        | SERIALIZABLE
+        }
+
+    在READ COMMITTED事务隔离级别下，事务没有使用gap lock进行锁定
+
+
+7.7 分布式事务
+    分布式事务常见于不同银行系统的转账中
+
+
+7.8 不好的事务习惯
+    1. 在循环中提交
+        因为每一次提交都要写一次重做日志，导致效率低下
+
+    2. 使用自动提交
+        对于不同语言的API，自动提交是不同的
+        在编写应用程序开发时，最好把事务的控制权交给开发人员，即在程序端进行事务的开始和结束
+
+    3. 使用自动回滚
+        InnoDB支持通过定义一个HANDLER来进行自动事务的回滚操作。
+
+    在程序中控制事务的好处是，用户可以得知发生错误的原因
+
+
+7.9 长事务
+    对于长事务来说，当发生问题时，重新开始事务的代价变得不可接受。
+    
+    对于长事务问题，有时可以通过转化为小批量的事务来处理
+

@@ -1,0 +1,151 @@
+第四章 表
+
+4.1 索引组织表
+    索引组织表： 根据主键顺序组织存放
+
+
+4.2 InnoDB逻辑存储结构
+    从InnoDB存储引擎的逻辑存储结构看，所有的数据都被逻辑地存放在一个空间中，称为表空间（tablespace）
+    表空间又由 ： 段（segment），区（extent），页（page，或称块block）， 行组成
+
+    即使启用了innodb_file_per_table的参数，每张表的表空间内存放的只是数据，索引，和插入缓冲Bitmap页，其他类的数据，如回滚（undo）信息，插入缓冲索引页，系统事务信息，
+    二次写缓冲（Double write buffer）等还是存放在原来的共享表空间内（ibdata1）。
+
+    段
+        常见的段 ： 数据段，索引段，回滚段
+        数据段即为B+树的叶子节点，索引段即为B+树的非索引节点
+
+    区 
+        区是由连续页组成的空间，在任何情况下每个区的大小都为1M。
+
+    页
+        页是InnoDB磁盘管理的最小单位。默认每个页的大小为16KB
+        常见的页类型 :
+            1. 数据页（B-Tree Node）
+            2. undo页（undo Log Page）
+            3. 系统页 （System Page）
+            4. 事务数据页 （Transaction system Page）
+            5. 插入缓冲位图页 （Insert Buffer Bitmap）
+            6. 插入缓冲空闲列表页 （Insert Buffer Free List）
+            7. 未压缩的二进制大对象页 （Uncompressed BLOB Page）
+            8. 压缩的二进制大对象页 （compressed BLOB Page）
+
+    行
+        InnoDB存储引擎是面向列的，也就是说数据是按行进行存放的。
+        每个页最多允许存放7992行记录，每页至少有两条记录（否则失去了B+Tree的意义，变成链表了）
+
+
+4.3 InnoDB行记录格式
+    compact行记录格式
+        变长字段长度列表 + NULL标志位 + 记录头信息 + 列1数据 + 列2数据 + ...
+        每行数据除了用户定义的列外，还有两个隐藏列，事务ID列和回滚指针列。若InnoDB表没有定义主键，每行还会增加一个6字节的rowid列
+        InnoDB存储引擎在页内部是通过一种链表的结构来串连各个行记录的。
+
+    redundant行记录格式
+        字段长度偏移列表 + 记录头信息 + 列1数据 + 列2数据 + ...
+
+    行溢出数据
+        InnoDB存储引擎可以将一条记录中的某些数据存储在真正的数据页面之外。一般认为BLOB这类的大对象列类型的存储会把数据存放在数据页面之外。
+        但是，BLOB可以不将数据放在溢出页面，而且即便是VARCHAR列数据类型，依然有可能被存放为行溢出数据。
+
+        注意： 官方手册中定义的65535长度是指所有VARCHAR列的长度总和，如果列的长度总和超出这个长度，依然无法创建。
+
+        一般情况下，数据都是存放在页类型为B-Tree node中。但是当发生行溢出时，数据存放在页类型为Uncompressed BLOB页中。原数据页中存放前缀（768字节），指向行溢出页的偏移量
+
+    compressed和dynamic行记录格式
+        新的两种记录格式对于存放在BLOB中的数据采用了完全的行溢出的方式，在数据页中只存放20个字节的指针，实际的数据都存放在Off Page中
+
+    对于多字节字符编码的CHAR数据类型的存储，InnoDB存储引擎在内部将其视为变长字符类型（对于未能占满长度的字符还是填充0x20），这也就意味着在变长长度列表中会记录CHAR数据类型的长度。
+    因此可以认为在多字节字符集的情况下，CHAR和VARCHAR的实际存储基本时没有区别的。
+
+
+4.4 InnoDB数据页结构
+    InnoDB数据页由以下7个部分组成：
+        1. File Header（文件头）
+        2. Page Header （页头）
+        3. Infimun 和 Supremum Records
+        4. User Records （用户记录，即行记录）
+        5. Free Space （空闲空间）
+        6. Page Directory（页目录）
+        7. File Trailer （文件结尾信息）
+
+    记录在页中是根据堆的形式存放的
+
+    注意！！ ： B+树索引本身并不能找到具体的一条记录，能找到只是该记录所在的页。数据库把页载入到内存中，然后通过Page Directory再进行二叉查找。
+
+
+4.5 Named File Formats机制
+    随着InnoDB的发展，出现了新的页数据结构，InnoDB存储引擎通过Named File Formats机制来解决不同版本下页结构兼容性的问题。
+
+4.6 约束
+    约束机制用于保证数据库中数据的完整性：
+        1. 实体完整性 ： 保证表中有一个主键 （Primary Key，Unique Key）
+        2. 域完整性 ： （保证每列的值满足特定的条件，可通过以下途径保证）
+            1. 选择合适的数据类型确保一个数据值满足特定条件
+            2. 外键（Foreign Key）约束
+            3. 编写触发器
+            4. 还可以考虑用DEFAULT约束作为强制域完整性的一个方面
+        3. 参照完整性 ： 保证两种表之间的关系。（通过外键或触发器）
+
+    InnoDB存储引擎本身提供了以下几种约束： 
+        1. Primary Key
+        2. Unique Key
+        3. Foreign Key
+        4. Default
+        5. Not NULL
+
+    约束的创建 ：   
+        1. 表建立时就进行约束定义
+            PRIMARY KEY (id)
+            UNIQUE KEY (name)
+            FOREIGN KEY (u_id) REFERENCES p (id);
+        2. 利用ALTER TABLE命令来进行创建约束
+            ALTER TABLE u ADD UNIQUE KEY uk_id_card (id_card);
+
+        约束和索引的概念有所不同，约束是一个逻辑上的概念，用来保证数据的完整性，而索引是一个数据结构，既有逻辑上的概念，再数据库中还代表着物理存储的方式。
+         
+
+    通过ENUM和SET类型可以解决部分CHECK约束（即value只能是某些值）
+
+    完整性约束通常也可以使用触发器来实现。
+        触发器的作用是在执行INSERT，DELETE和UPDATE命令之前或之后自动调用SQL命令或存储过程
+        
+        CREATE 
+        [ DEFINER = { user | CURRENT_USER }]
+        TRIGGER trigger_name BEFORE|AFTER INSERT|UPDATE|DELETE
+        ON tbl_name FOR EACH ROW trigger_stmt
+
+
+
+
+4.7 视图
+    在mysql数据库中，视图是一个命名的虚表，它由一个SQL查询来定义，可以当作表使用。与持久表不同的是，视图中的数据没有实际的物理存储。
+
+    是可以对视图进行更新操作的，本质就是通过视图的定义来更新基本表。
+
+
+
+4.8 分区表
+    分区功能并不是在存储引擎层完成的。有些存储引擎不支持分区。
+
+    分区的过程是将一个表或索引分解为多个更小，更可管理的部分。逻辑上只有一个表或索引，物理上由多个
+
+    分区类型 :
+        1. 水平分区 ： 同一表中不同行的记录分配到不同的物理文件中
+        2. 垂直分区 ： 同一表中不同列的记录分配到不同的物理文件中
+
+    分区可能会给某些SLQ语句性能带来提高，但是分区主要用于数据库高可用性的管理。
+
+    mysql支持的分区类型 ：  
+        1. RANGE分区 ： 行数据基于属于一个给定连续区间的列值被放入分区
+        2. LIST分区 ： 和RANGE分区类似，只是LIST分区面向的是离散的值
+        3. HASH分区 ： 根据用户自定义的表达式的返回值来分区
+        4. KEY分区 ： 根据mysql提供的哈希函数来分区
+        5. COLUMNS分区 ： 可以直接使用非整型的数据进行分区（与上面的组合使用）
+
+    删除某个分区 ： alter table sales drop partition p2008;
+
+    可以在分区上继续分区，形成子分区
+
+    对于OLAP的应用，分区的确可以很好地提高查询的性能。实际生产环境中，一般B+树的高度为2~4。
+
