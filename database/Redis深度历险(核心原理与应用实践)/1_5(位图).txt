@@ -1,0 +1,30 @@
+位图不是特殊的数据结构，它的内容其实就是普通的字符串，也就是byte数组
+
+基本使用
+    get/set ：直接获取和设置整个位图的内容
+    getbit/setbit : 将byte数组看成“位数组”来处理
+
+    redis的位数组是自动扩展的，如果设置了某个偏移为止超出了现有的内容范围，就会自动将位数组进行零扩展
+
+    存储字符"he"(01101000 01100101)
+        setbit s 1 1
+        setbit s 2 1
+        setbit s 4 1
+        setbit s 9 1
+        setbit s 10 1
+        setbit s 13 1
+        setbit s 15 1
+
+        set w h //整存
+        getbit w 1
+
+统计和查找
+    bitcount w 0 1//前两个字符中1的位数
+    bitpos w 0//查找第一个0位
+    bitpos w 1//查找第一个1位
+    bitpos w 1 1 1//从第二个字符算起，第一个1位
+    bitpos key bit [start] [end]
+
+
+魔术指令bitfield
+    bitfield key [GET type offset] [SET type offset value] [INCRBY type offset increment] [OVERFLOW WRAP|SAT|FAIL]

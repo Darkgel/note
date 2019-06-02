@@ -1,0 +1,112 @@
+五种基础数据结构
+    1. string(字符串)
+    2. list(列表)
+    3. hash(字典)
+    4. set(集合)
+    5. zset(有序集合)
+
+redis所有的数据结构都以唯一的key字符串作为名称，然后通过这个唯一的key值来获取相应的value数据。
+
+string
+    redis的字符串是动态字符串，是可以修改的字符串，内部结构的实现类似于java的ArrayList
+    采用预分配冗余空间来减少内存分配的频繁
+
+    字符串的最大长度为512M
+
+    如果value值是一个整数，还可以对它进行自增操作。
+    自增是有范围的，超出则redis会报错
+
+
+list
+    Redis的列表相当于java中的LinkedList，注意是链表而不是数组
+    
+    redis的列表结构常用来做异步队列使用。将需要延后处理的任务结构体序列化成字符串，
+    塞入redis的列表，另一个线程从这个列表中轮询数据进行处理
+
+    队列：  
+        常用于消息排队和异步逻辑处理
+
+        rpush books python java golang
+        llen books
+        lpop books
+
+    栈：
+        rpush books python java golang
+        rpop books
+
+
+hash
+    redis的字典相当于java的HashMap，实现上采用“数组 + 链表”的二维结构
+
+    redis字典的值只能是字符串
+
+    与字符串需要一次性全部序列化整个对象不同，hash可以对用户结构中的每个字段单独存储。
+    hash结构的存储消耗要高于单个字符串。
+
+
+set
+    redis的集合相当于java中的HashSet，它内部的键值是无序的，唯一的。
+    它的内部实现相当于一个字典，字典中的所有value的都是NULL值
+
+zset
+    有序列表
+    它类似于java中的SortedSet和HashMap的集合体
+    一方面它是一个set，保证内部value的唯一性，
+    另一方面它可以给每个value赋予一个score，代码这个value的排序权重
+
+
+容器型数据机构：list，set，hash ，zset
+
+过期时间
+    所有的数据结构都可以设置过期时间
+
+    过期时间是以对象为单位的，比如一个hash结构的过期是整个hash对象的过期，而不是其中某个子key的过期
+
+    如果一个字符串已经设置了过期时间，然后又调用了set方法修改了它，它的过期时间就会消失
+
+
+常用命令 ： 
+    set name codehole
+    get name
+    exists name
+    del name
+    mget name1 name2 name3
+    mset name1 val1 name2 val2
+    expire name 5 //设置过期时间
+    setx name 5 codehole //等价于 set + expire
+    setnx name codehole //如果不存在就创建，否则不创建
+    incr age
+    incrby age -5
+    
+    rpush books a b c
+    llen books
+    lpop books 
+    lindex books 1 //获取某个链表元素，对链表进行遍历
+    lrange books 0 -1//获取给定范围的链表元素，遍历
+    ltrim books 1 -1 //保留1 -1之间的元素，删除其他元素
+
+    hset books java "think in java"
+    hgetall
+    hlen 
+    hget books java
+    hmset books java "effective java" python "learning python"
+    hincrby user age 2
+
+    sadd books python
+    sadd books java golang
+    smembers books
+    sismember books java
+    scard books // 获取长度，相当于count()
+    spop books // 弹出一个
+
+    zadd books 9.0 "think in java"
+    zrange books 0 -1//scope升序
+    zrevrange books 0 -1//scope降序
+    zcard books //相当于count()
+    zsocre books "think in java"//获取指定value的socre
+    zrank books "think in java"//获取制定value的排名
+    zrangebyscore books 0 8.91 //根据分值区间遍历zset
+    zrangebyscore books -inf 8.91 withscores
+    zrem books "think in java"
+
+    
