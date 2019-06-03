@@ -100,8 +100,8 @@ zset
     spop books // 弹出一个
 
     zadd books 9.0 "think in java"
-    zrange books 0 -1//scope升序
-    zrevrange books 0 -1//scope降序
+    zrange books 0 -1//score升序
+    zrevrange books 0 -1//score降序
     zcard books //相当于count()
     zsocre books "think in java"//获取指定value的socre
     zrank books "think in java"//获取制定value的排名
