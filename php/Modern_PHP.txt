@@ -10,11 +10,13 @@ Chapter 1. The New PHP
 
 
 
-Chapter 2. Features
+Chapter 2. 特性
     Namespace
         在php5.3.0引入
 
         namespace关键字必须在跟在<?php之后
+        命名空间（子命名空间）的作用是封装和组织相关的php类
+        PHP命名空间与操作系统的物理文件系统，这是一个虚拟概念，没必要和文件系统中的目录结构完全对应。但是大多数PHP组件为了兼容广泛使用的PSR-4自动加载器标准，会把子命名空间放到文件系统的子目录中
 
         别名
             use Symfony\Component\HttpFoundation\Response as Res;
@@ -31,7 +33,308 @@ Chapter 2. Features
 
         若在引用一个class，interface，function，或constant 时没有使用namespace ，则默认其存在于当前命名空间下。
 
-        若没有为代码显式定义一个命名空间，则这些代码位于global namespace ，
+        若没有为代码显式定义一个命名空间，则这些代码位于global namespace （全局命名空间 \），
 
-        面向接口编程
-            通过面向接口编程，我们可以在不了解第三方代码实现的情况下使用其代码
+
+    使用接口
+        通过面向接口编程，我们可以在不了解第三方代码实现的情况下使用其代码
+        
+        接口是两个PHP对象之间的契约，其目的不是让一个对象依赖另一个对象的身份，而是依赖另一个对象的能力
+
+    trait （性状，php5.4引入的概念）
+        trait是类的部分实现（包含常量，属性和方法）
+
+        作用：
+            表明类可以做什么（像是接口）
+            提供模块化实现（像是类）
+
+        trait能把模块化的实现方式注入多个无关的类中。而且还能促进代码重用。
+
+        注意：
+            php解释器在编译时会把性状复制粘贴到类的定义体中，但是不会处理这个操作引入的不兼容问题。
+            如果性状假定类中有特定的属性或方法（在性状中没有定义），要确保相应的类中有对应的属性和方法。
+
+
+    生成器（PHP5.5引入）
+        生成器是简单的迭代器，仅此而已
+        与标准的PHP迭代器不同，PHP生成器不要求类实现Iterator接口
+
+        调用生成器函数，PHP会返回一个Generator类的对象。这个对象可以使用foreach()函数迭代
+
+        例子：
+            // 需要为预先创建的一个由一百万个整数组成的数组分配内存。
+            function makeRange($length){
+                $dataset = [];
+                for ($i=0; $i < $length; $i++){
+                    $dataset[] = $i;
+                }
+                return $dataset;
+            }
+
+            //一次只会为一个整数分配内存
+            function makeRange($length){
+                for($i = 0; $i < $length; $i++){
+                    yield $i;
+                }
+            }
+
+            foreach(makeRange(1000000) as $i){
+                echo $i;
+            }
+
+        生成器是只能向前进的迭代器。迭代大型数据集或数列时最适合使用生成器，因为这样占用的系统内存量极少。
+
+        如果需要更多功能，例如在数据集中执行后退，快进或查找操作，最好自己编写类，实现Iterator接口，或者使用PHP标准库中某个原生的迭代器
+
+
+    闭包和匿名函数（php5.3.0引入）
+        闭包 :  闭包是指在创建时封装周围状态的的函数。（所以闭包是函数）即使闭包所在的环境不存在了，闭包中封装状态依然存在。
+
+        匿名函数 : 没有名称的函数。可以赋值给变量，可以像任何PHP对象那样传递
+
+        注意： 理论上讲，闭包和匿名函数是不同的概念。不过，PHP将其视为相同的概念。
+
+        PHP闭包和匿名函数使用的句法与普通函数相同，但它们其实是伪装成函数的对象。它们是Closure类的实例
+
+        创建闭包：
+            $closure = function ($name) {
+                return 'a'.$name;
+            }
+
+            echo $closure("bb");
+
+            只要变量名后有(),PHP就会查找并调用__invoke()方法。
+
+        附加状态：
+            PHP闭包不会像真正的js闭包那样自动封装应用的状态。必须手动调用闭包对象的bindTo()方法或者use关键字，把状态附加到PHP闭包上。
+
+            use关键字：
+                function enclosePerson($name) {
+                    return function ($doCommand) use ($name) {
+                        return $doCommand.$name;
+                    }
+                }
+
+                $clay = enclosePerson('Clay');
+
+                echo $clay('myCommand');
+
+            bindTo:
+                class App {
+                    protected $route = array();
+                    protected $responseStatus = '200 OK';
+                    protected $responseBody = 'body';
+
+                    public function addRoute($routePath, $routeCallback){
+                        $this->route[$routePath] = $routeCallback->bindTo($this, __CLASS__);//绑定
+                    }
+                }
+
+                $app = new App();
+                $app->addRoute('users/hello', function (){
+                    $this->responseStatus = '..';
+                    $this->responseBody = 'ccc';//这里的$this可以访问app实例中的属性
+                });
+
+    Zend OPcache（php5.5.0）
+        有很多的独立扩展可以实现缓存 ： APC（Alternative PHP Cache），eAccelerator,ionCube和XCache
+
+        配置
+            编译时 ： --enable-opcache 
+            config : zend_extension=/path/to/opcache.Symfony
+
+        注意 ： 如果使用了xdebug，则必须先加载zend opcache扩展，再加载Xdebug
+
+        配置参数中
+            opcache.validate_timestamps = 1;//生产环境中设为“0”
+            当上面参数设置为0时，就觉察不到PHP脚本的变化，必须手动清空缓存的字节码
+
+
+    内置的HTTP服务器
+        php -S localhost:4000 -c app/config/php.ini
+
+
+
+第三章 标准
+    PHP-FIG的使命是实现框架的互操作性。框架的互操作性是指，通过接口，自动加载机制和标准的风格，让框架相互合作。
+
+    PSR 
+        PSR-1 ： 基本的代码风格
+        PSR-2 ： 严格的代码风格
+        PSR-3 ： 日志记录器接口
+        PSR-4 ： 自动加载 （PSR-0已经被PSR-4替代）
+
+    不写PHP关闭标签?>的原因：能避免意料之外的的输出错误。如果加上关闭标签?>,而且在关闭标签后有空行，那么这个空行会别当成输出，导致出错
+
+    自动加载器
+        自动加载器策略是指，在运行时按需要查找PHP类，接口或trait，并将器载入PHP解析器中。
+        PSR-4的精髓时把命名空间的前缀和文件系统中的目录对应起来
+
+
+第四章 组件
+    严格来说，PHP组件是一些列相关的类，接口和trait，用于解决某个具体问题。组件中的类，接口，trait通常放在同一个命名空间中
+
+    Packagist是查找组件的地方，Composer是安装组件的地方
+
+第五章 良好实践
+    不要相信任何外部数据源：
+        1. 过滤输入
+            HTML ： htmlentities()
+                正确使用方法 ： htmlentities($input, ENT_QUOTES, 'UTF-8');
+                    第一个参数是输入字符串
+                    第二个参数设为ENT_QUOTES常量，转义单引号
+                    第三个参数设为输入字符串的字符集
+
+                如果需要更多过滤HTML输入的方式，可以使用HTML Purifier库
+
+            SQL查询 : 使用PDO预处理语句（prepared statement）
+
+        
+        2. 验证数据
+            验证是为了保证在应用的存储层保存符合特定格式的正确数据。如果遇到无效数据，要终止数据存储操作，并显式适当的错误信息，来提醒应用的用户
+        
+        3. 转义输出
+            通过转义输出，能避免渲染恶意代码，还能防止应用的用户无意中执行恶意代码
+
+            htmlentities()
+
+    密码
+        web应用通常会生成一个唯一的令牌，这个令牌只在设定或修改密码时使用一次。
+
+        采用hash算法
+            MD5,SHA1,bcrypt和scrypt
+
+            bcrybt
+                1.自动加盐，防止潜在的彩虹表攻击
+
+        函数 ： password_hash(),password_verify()
+
+    日期，时间和时区
+        设置默认时区
+            date.timezone = 'America/New_York';
+            date_default_timezone_set('America/New_York');
+
+        Datetime类
+            $datetime = new DateTime('2014-04-27 5:03 AM');
+            $datetime = DateTime::createFromFormat('M j, Y H:i:s', 'Jan 2, 2014 23:04:12');
+
+        DateInterval类
+            DateInterval实例用于修改DateTime实例。
+
+        DateTimeZone类
+            $tiemzone = new DateTimeZone('America/New_York');
+            $datetime = new DateTime('2014-08-20', $timezone);
+
+        DatePeriod类
+            DatePeriod实例时迭代器，每次迭代都会产出一个DateTime实例
+
+        应该统一使用UTC时区： 服务器使用UTC时区；PHP设置的默认时区时UTC；存储到数据库时，保存时区为UTC的日期和时间。
+        把数据展示给用户查看时，再把时区为UTC的日期和时间值转换成适当时区的日期和时间
+
+
+    数据库
+        PDO 实例的作用是把php和数据库连接起来
+
+        预处理语句
+            $sql = '...';
+            $statement = $pdo->prepare($sql);
+            $statement->bindValue(':id', $id, PDO::PARAM_INT);
+            $statement->execute();
+
+        事务
+            $pdo->beginTransaction()
+            $pdo->commit()
+
+    多字节字符串
+        为了避免处理多字节字符串时出错，可以安装mbstring扩展处理
+
+        使用UTF-编码
+
+        建议 ：     
+            1. 一定要知道数据的字符编码
+            2. 使用UTF-8字符编码存储数据
+            3. 使用UTF-8字符编码输出数据
+
+    流
+        流的作用是使用统一的方式处理文件，网络和数据压缩等共用同一套函数和用法的操作
+
+        file_get_contents(),fopen(),fwrite(),fclose()函数读写文件系统，PHP默认使用的流封装协议是file://,我们通常会省略该封装协议
+
+        流封装协议
+            http://
+            file:/
+            php:// ： 与php脚本的标准输入，标准输出和标准错误文件描述符通信（php://stdin,php://stdout,php://memory,php://temp）
+
+        还可以自定义流封装协议
+
+        流过滤器
+
+
+    错误和异常
+        如果你编写的代码是提供给其他开发者使用的，遇到异常状况时或在当前条件下无法操作时要抛出异常，把异常委托给使用组件或框架的开发者处理
+
+        异常处理程序
+            通常应该在应用中设置一个全局异常处理程序
+            set_exception_handler()
+
+
+第六章 主机
+
+
+第七章 配置
+    PHP-FPM
+        PHP-FPM软件会创建一个主进程（通常以操作系统中根用户的身份运行），控制何时以及如何把HTTP请求转发给一个或多个子进程处理
+        PHP-FPM主进程还控制着什么时候创建(处理更多的请求)和销毁（子进程运行时间太久或不再需要了）PHP子进程
+
+第八章 调优
+
+    分析每次HTTP请求时如何处理PHP脚本
+        1. nginx把http请求转发给PHP_FPM
+        2. PHP_FPM再把请求交给某个PHP子进程处理
+        3. PHP进程找到相应的PHP脚本后，读取脚本，把PHP脚本编译成操作码格式，然后执行编译得到的操作码，生成响应。把响应发给nginx
+        4. nginx把响应发给HTTP客户端
+
+
+    配置每个PHP进程的内存 ： memory_limit
+    
+    Zend OPcache ：
+        opcache.memory_consumption = 64
+        opcache.interned_strings_buffer = 16
+        opcache.max_accelerated_files = 4000
+        opcache.validate_timestamps = 1
+        opcache.revalidate_freq = 0
+        opcache.fast_shutdown = 1
+
+    文件上传：
+        file_uploads = 1
+        upload_max_filesize = 10M
+        max_file_uploads = 3
+
+    最长执行时间
+        max_execution_time = 5
+
+        exec(); 派生一个单独的后台进程
+
+    缓冲输出
+        默认情况下，PHP已经启用了输出缓冲功能（不过没在命令行中启用）。PHP缓冲一定字节的输出后才会把其中的内容发给Web服务器。
+        
+        output_buffering = 4096
+        implicit_flush = false
+
+
+第九章 部署
+    应该采用自动部署，并且部署可逆
+
+    工具 ：     
+        Capistrano
+
+第十章 测试
+    使用Travis CI持续测试
+
+第十一章 性能分析
+    Xdebug 
+    XHProf
+
+第十二章 HHVM和HACK
+    HHVM和Zend Engine是等价的
+
