@@ -1,0 +1,4 @@
+建立网络
+
+1.生成加密工件（cryptogen）
+	bin/cryptogen generate --config=config/crypto-config.yaml
