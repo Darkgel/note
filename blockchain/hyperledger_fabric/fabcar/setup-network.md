@@ -32,7 +32,7 @@ configtxgen -profile TwoOrgsChannel -outputAnchorPeersUpdate ./channel-artifacts
 # 运行docker容器
 docker-compose -f docker-compose-cli.yaml -f docker-compose-ca.yaml -f docker-compose-couch.yaml up -d
 
-# 创建channel
+# 创建channel（！！！！这里执行失败）
 docker exec cli scripts/script.sh mychannel 3 golang 10 false true
 
 ```
