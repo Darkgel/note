@@ -21,7 +21,34 @@
     - peers
     - orders
 
+Users
+    - Admin@example.com
+    - Admin@org1.example.com
+    - User1@org1.example.com
+    - Admin@org2.example.com
+    - User2@org2.example.com
+
+Nodes
+    - orderer中的example.com组织
+      - ca.example.com
+      - orderer.example.com
+      - ordererX.example.com
+      - tlsca.example.com
+    - peer中的org1.example.com组织
+      - ca.org1.example.com
+      - tlsca.org1.example.com
+      - peer0.org1.example.com
+      - peer1.org1.example.com
+    - peer中的org2.example.com组织
+      - ca.org2.example.com
+      - tlsca.org2.example.com
+      - peer0.org2.example.com
+      - peer1.org2.example.com
+
 ## 2. 生成genesis block和初始化transaction(configtxgen)
+
+此处生成的genesis block为系统级别的genesis block
+除了系统级别的genesis block之外还有channel级别的genesis block（通过创建channel的transaction生成）
 
 ```shell
 export FABRIC_CFG_PATH=$PWD # configtx.yml所在的目录
