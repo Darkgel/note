@@ -45,6 +45,20 @@ Nodes
       - peer0.org2.example.com
       - peer1.org2.example.com
 
+### 替换私钥
+
+OPTS="-i"
+cp docker-compose-e2e-template.yaml docker-compose-e2e.yaml
+CURRENT_DIR=$PWD
+cd crypto-config/peerOrganizations/org1.example.com/ca/
+PRIV_KEY=$(ls *_sk)
+cd "$CURRENT_DIR"
+sed $OPTS "s/CA1_PRIVATE_KEY/${PRIV_KEY}/g" docker-compose-e2e.yaml
+cd crypto-config/peerOrganizations/org2.example.com/ca/
+PRIV_KEY=$(ls *_sk)
+cd "$CURRENT_DIR"
+sed $OPTS "s/CA2_PRIVATE_KEY/${PRIV_KEY}/g" docker-compose-e2e.yaml
+
 ## 2. 生成genesis block和初始化transaction(configtxgen)
 
 此处生成的genesis block为系统级别的genesis block
@@ -57,6 +71,8 @@ export FABRIC_CFG_PATH=$PWD # configtx.yml所在的目录
 configtxgen -profile TwoOrgsOrdererGenesis -channelID byfn-sys-channel -outputBlock ./channel-artifacts/genesis.block
 configtxgen -profile SampleMultiNodeEtcdRaft -channelID byfn-sys-channel -outputBlock ./channel-artifacts/genesis.block # Raft ordering service
 configtxgen -profile SampleDevModeKafka -channelID byfn-sys-channel -outputBlock ./channel-artifacts/genesis.block # Kafka ordering service
+
+此处的channelID是系统channel的名字
 
 # 生成Channel Configuration Transaction
 export CHANNEL_NAME=mychannel  && configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel-artifacts/channel.tx -channelID $CHANNEL_NAME # 此命令也适用于Raft ordering service 和 Kafka ordering service
@@ -90,6 +106,11 @@ export CORE_PEER_LOCALMSPID="Org1MSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 
 # 创建channel，会返回mychannel.block,保存在当前目录下
+export CORE_PEER_LOCALMSPID="OrdererMSP"
+export CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+export CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/users/Admin@example.com/msp
+
+
 export CHANNEL_NAME=mychannel
 peer channel create -o orderer.example.com:7050 -c $CHANNEL_NAME -f ./channel-artifacts/channel.tx --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
