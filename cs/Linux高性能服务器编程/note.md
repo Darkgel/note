@@ -139,10 +139,10 @@ POSIX线程同步方式 ： POSIX信号量，互斥锁（mutex），条件变量
 ## 系统检测工具
 
 - tcpdump:网络抓包工具
-- nc
-- strace
+- nc:快速构建网络连接（作为服务端或客户端）
+- strace:跟踪程序运行过程中执行的系统调用和接收到的信号，并将系统调用名，参数，返回值及信号名输出到标准输出或者指定的文件
 - lsof：理出当前系统打开的文件描述符的工具
-- netstat
-- vmstat
-- ifstat
-- mpstat
+- netstat：网络信息统计工具
+- vmstat：virtual memory stattistics，实时输出系统的各种资源的使用情况（进程，内存，cpu，I/O使用情况）
+- ifstat：interface statistics，网络流量监测工具
+- mpstat：multi-processor statistics，实时监测多处理系统上每个cpu的使用情况
