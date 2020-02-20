@@ -1,0 +1,227 @@
+[root@VM_31_75_centos ~]# kubectl describe pod -n istio-system istio-egressgateway-6f48b87f7d-t8wkl
+Name:           istio-egressgateway-6f48b87f7d-t8wkl
+Namespace:      istio-system
+Node:           172.24.31.124/172.24.31.124
+Start Time:     Sat, 04 Jan 2020 12:25:45 +0800
+Labels:         app=istio-egressgateway
+                chart=gateways
+                heritage=Tiller
+                istio=egressgateway
+                pod-template-hash=6f48b87f7d
+                release=release-name
+Annotations:    sidecar.istio.io/inject: false
+                tke.cloud.tencent.com/networks-status:
+                  [{
+                      "name": "tke-bridge",
+                      "ips": [
+                          "10.1.16.165"
+                      ],
+                      "default": true,
+                      "dns": {}
+                  }]
+Status:         Running
+IP:             10.1.16.165
+Controlled By:  ReplicaSet/istio-egressgateway-6f48b87f7d
+Containers:
+  istio-proxy:
+    Container ID:  docker://3d657f76e47265a63b2b05b475cc79868aad21ff5e4ae3baa9466c6cea4db527
+    Image:         ccr.ccs.tencentyun.com/library/istio-proxyv2:1.1.8
+    Image ID:      docker-pullable://ccr.ccs.tencentyun.com/library/istio-proxyv2@sha256:18c166cdd96f65d1fb7fb36cf914107fabd3b233db972b4352da72188b2de3f5
+    Ports:         80/TCP, 443/TCP, 15443/TCP, 15090/TCP
+    Host Ports:    0/TCP, 0/TCP, 0/TCP, 0/TCP
+    Args:
+      proxy
+      router
+      --domain
+      $(POD_NAMESPACE).svc.cluster.local
+      --log_output_level
+      info
+      --drainDuration
+      45s
+      --parentShutdownDuration
+      1m0s
+      --connectTimeout
+      10s
+      --serviceCluster
+      istio-egressgateway
+      --proxyAdminPort
+      15000
+      --statusPort
+      15020
+      --controlPlaneAuthPolicy
+      NONE
+      --discoveryAddress
+      istio-pilot:15010
+    State:          Running
+      Started:      Sat, 04 Jan 2020 12:25:56 +0800
+    Ready:          True
+    Restart Count:  0
+    Requests:
+      cpu:      10m
+    Readiness:  http-get http://:15020/healthz/ready delay=1s timeout=1s period=2s #success=1 #failure=30
+    Environment:
+      POD_NAME:                     istio-egressgateway-6f48b87f7d-t8wkl (v1:metadata.name)
+      POD_NAMESPACE:                istio-system (v1:metadata.namespace)
+      INSTANCE_IP:                   (v1:status.podIP)
+      HOST_IP:                       (v1:status.hostIP)
+      ISTIO_META_POD_NAME:          istio-egressgateway-6f48b87f7d-t8wkl (v1:metadata.name)
+      ISTIO_META_CONFIG_NAMESPACE:  istio-system (v1:metadata.namespace)
+      ISTIO_META_ROUTER_MODE:       sni-dnat
+    Mounts:
+      /etc/certs from istio-certs (ro)
+      /etc/istio/egressgateway-ca-certs from egressgateway-ca-certs (ro)
+      /etc/istio/egressgateway-certs from egressgateway-certs (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from istio-egressgateway-service-account-token-mqbxt (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  istio-certs:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  istio.istio-egressgateway-service-account
+    Optional:    true
+  egressgateway-certs:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  istio-egressgateway-certs
+    Optional:    true
+  egressgateway-ca-certs:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  istio-egressgateway-ca-certs
+    Optional:    true
+  istio-egressgateway-service-account-token-mqbxt:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  istio-egressgateway-service-account-token-mqbxt
+    Optional:    false
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     <none>
+Events:          <none>
+
+
+
+[root@VM_31_75_centos ~]# kubectl describe service istio-egressgateway -n istio-system
+Name:                     istio-egressgateway
+Namespace:                istio-system
+Labels:                   chart=gateways
+                          heritage=Tiller
+                          release=release-name
+Annotations:              <none>
+Selector:                 app=istio-egressgateway,istio=egressgateway,release=release-name
+Type:                     NodePort
+IP:                       10.1.23.6
+Port:                     http2  80/TCP
+TargetPort:               80/TCP
+NodePort:                 http2  31737/TCP
+Endpoints:                10.1.16.165:80
+Port:                     https  443/TCP
+TargetPort:               443/TCP
+NodePort:                 https  31334/TCP
+Endpoints:                10.1.16.165:443
+Port:                     tls  15443/TCP
+TargetPort:               15443/TCP
+NodePort:                 tls  31427/TCP
+Endpoints:                10.1.16.165:15443
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+$idc = Env::getIdc();                                                                       
+if($idc === 'test' & $appId === 5675){                                                      
+    return [                                                                                
+        'ip' => 'unified.interface.layer.safety.http.com',                                  
+        'port' => '15005',                                                                  
+    ];                                                                                      
+}
+
+
+
+CREATE TABLE `notice_content_list` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `content_cn` varchar(1000) NOT NULL DEFAULT '' COMMENT '短信内容中文',
+  `content_hk` varchar(1000) NOT NULL DEFAULT '' COMMENT '短信内容繁体',
+  `content_us` varchar(1000) NOT NULL DEFAULT '' COMMENT '短信内容英文',
+  `type` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '消息类型 0:普通通知消息，1:通知用户修改消息',
+  `use_todo` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '是否推送到待办，0否，1是',
+  `todo_template_id` varchar(255) NOT NULL DEFAULT '' COMMENT '待办消息模板的id',
+  `deleted_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '删除时间戳',
+  `created_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间戳',
+  `updated_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间戳',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8 COMMENT='通知内容列表'
+
+CREATE TABLE `reject_reason_list` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `type` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '0无需通知，1通知',
+  `reason_cn` varchar(1000) NOT NULL DEFAULT '' COMMENT '驳回原因中文',
+  `reason_hk` varchar(1000) NOT NULL DEFAULT '' COMMENT '驳回原因中文(繁体)',
+  `reason_us` varchar(1000) NOT NULL DEFAULT '' COMMENT '驳回原因英文',
+  `deleted_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '删除时间戳',
+  `created_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间戳',
+  `updated_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间戳',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8 COMMENT='驳回原因列表'
+
+CREATE TABLE `task_reason` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `task_type` int(10) unsigned NOT NULL DEFAULT '1' COMMENT '任务类型 0未知，1转入，2转出',
+  `tid` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '任务id',
+  `type` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '类型 0未知，1驳回，2修改',
+  `detail` varchar(1000) NOT NULL DEFAULT '' COMMENT '具体原因',
+  `remark` varchar(1000) NOT NULL DEFAULT '' COMMENT '备注',
+  `sid` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '员工id',
+  `staff_name` varchar(50) NOT NULL DEFAULT '' COMMENT '员工名称',
+  `created_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间戳',
+  `updated_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间戳',
+  `reason_template_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '关联的原因模板在原表中的id',
+  PRIMARY KEY (`id`),
+  KEY `idx_task_tid` (`task_type`,`tid`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8 COMMENT='任务处理中涉及的各种处理原因'
+
+
+
+CREATE TABLE `stock_out_message_template` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `type` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '消息类型 0:普通通知消息，1:驳回原因',
+  `need_nofity` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '0无需通知，1需要通知', 
+  `todo_template_id` varchar(255) NOT NULL DEFAULT '' COMMENT '待办消息模板的id，空串表示不使用待办', 
+  `content_cn` varchar(1000) NOT NULL DEFAULT '' COMMENT '中文内容',
+  `content_hk` varchar(1000) NOT NULL DEFAULT '' COMMENT '中文繁体内容',
+  `content_us` varchar(1000) NOT NULL DEFAULT '' COMMENT '英文内容',
+  `deleted_at` int(10) unsigned NOT NULL DEFAULT
+   '0' COMMENT '删除时间戳',
+  `created_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间戳',
+  `updated_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间戳',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8 COMMENT='股票转出任务消息模板'
+
+CREATE TABLE `stock_out_task_message` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `tid` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '任务id',
+  `type` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT '消息类型 0:普通通知消息，1:驳回原因',
+  `detail` varchar(1000) NOT NULL DEFAULT '' COMMENT '具体原因',
+  `remark` varchar(1000) NOT NULL DEFAULT '' COMMENT '备注',
+  `sid` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '员工id',
+  `staff_name` varchar(50) NOT NULL DEFAULT '' COMMENT '员工名称',
+  `message_template_id` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'stock_out_message_template关联表的id，0表示使用模板',
+  `template_params` varchar(1000) NOT NULL DEFAULT '' COMMENT '消息模板参数',
+  `created_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间戳',
+  `updated_at` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间戳',
+  PRIMARY KEY (`id`),
+  KEY `idx_task_tid` (`task_type`,`tid`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8 COMMENT='股票转出任务处理中涉及的各种消息'
